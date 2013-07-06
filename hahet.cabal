@@ -1,0 +1,29 @@
+name:                hahet
+version:             0.0.0.0
+synopsis:            The Hahet configuration management system
+description:         A framework for writing your server configuration files
+                     type-safely in Haskell and apply them to the server as a
+                     executable.
+homepage:            coming-soon
+license:             MIT
+license-file:        LICENSE
+author:              Samuli Thomasson
+maintainer:          samuli.thomasson@paivola.fi
+-- copyright:           
+-- category:            
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  exposed-modules:     TestSystemConf
+                       Hahet
+                       Hahet.Core
+                       Hahet.Core.Module
+                       Hahet.Core.PackageManager
+  -- other-modules:       
+  build-depends: base ==4.6.*
+               , text ==0.11.*
+               , mtl  ==2.1.*
+
+  extensions: TypeFamilies
+              GeneralizedNewtypeDeriving
