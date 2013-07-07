@@ -17,27 +17,18 @@ import Hahet.Core.PackageManager    as Hahet.Core
 use :: HahetModule mconf
     => mconf -> ConfMonad c ()
 use mconf = do
-    mlog $ "module:        " ++ modId
+    mlog $ "Entered module " ++ modId
     modify (pushAppModule modId)
     hmInit mconf -- run the module configuration initialization function
     -- check for system-wide daemon conficts
     where
         modId = show (typeOf mconf)
 
--- | Make the module manage a file.
-manageFile :: FilePath -> (FilePath -> IO Text) -> ConfMonad conf ()
-manageFile fp content = do
-    mlog $ "manage file:    " ++ fp
+-- | Require a target to be applied.
+manage :: Target t => t -> ConfMonad conf ()
+manage t = do
+    mlog $ "Added target " ++ show (typeOf t)
+    modify $ pushTarget t
 
-manageDir :: FilePath -> ConfMonad conf ()
-manageDir fp = do
-    mlog $ "manage dir:     " ++ fp
-
-revokeFile :: FilePath -> ConfMonad conf ()
-revokeFile fp = do
-    mlog $ "revoke file:    " ++ fp
-
-requirePkg :: Pkg -> ConfMonad conf ()
-requirePkg pkg = do
-    -- check for package conflicts
-    mlog $ "require pkg:    " ++ show pkg
+revoke :: Target t => t -> ConfMonad conf ()
+revoke t = error "Target revoking not implemented"

@@ -39,6 +39,10 @@ main = do
                       -- command-line.
 ```
 
+### Applying
+
+We apply Targets. 
+
 Thought-of Features for modules
 -------------------------------
 
@@ -57,3 +61,10 @@ optionally as constraints on the `Configuration`.
 
 ### Mailing
 
+
+Configuration tutorial
+----------------------
+
+
+Module tutorial
+---------------

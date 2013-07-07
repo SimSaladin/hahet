@@ -22,8 +22,6 @@ nginx nserver = do
     let dir      = nginxFilesRoot nserver
         basefile = dir
 
-    requirePkg "nginx"
-    manageDir  dir
-    
-    manageFile "/etc/nginx/" $ \fp ->
-        return ""
+    manage $ Pkg "nginx"
+    manage $ Directory dir def
+    manage $ File basefile def undefined
