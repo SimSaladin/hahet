@@ -6,32 +6,25 @@ import Hahet
 import Hahet.Modules.ModNginx
 
 -- | Our configuration datatype.
-data TestConf = TestConf deriving Typeable
+data TestConf = TestConf
+        deriving Typeable
 
+-- | Convenience synonym.
 type Conf = ConfMonad TestConf
 
--- | Make testconf an instance of the Hahet configuration manager. Here we
--- specify static properties for the configuration.
+-- | Make our conf instance of the Hahet typeclass.
 instance Hahet TestConf where
     type PackageManager TestConf = Pacman
 
--- * My modules
+-- * Modules configuration
 
-myNginx :: Conf NginxServer
-myNginx = do
-    return $ NginxServer ["mui."]
+mkNginx :: Conf Nginx
+mkNginx = return def
 
 -- * Execute tests
 
-myConf :: TestConf
-myConf = TestConf
-
-myInit :: Conf ()
-myInit = do
-    use =<< myNginx
-
 main :: IO ()
 main = do
-    app     <- confToApp myConf myInit
+    app     <- confToApp TestConf (use (def :: Nginx))
     results <- runHahet app []
     return ()

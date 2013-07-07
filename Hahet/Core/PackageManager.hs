@@ -4,4 +4,5 @@ module Hahet.Core.PackageManager where
 import Data.Text
 
 data Pacman = Pacman
-data Pkg = Pkg Text Text
+
+type PkgVersion = Text

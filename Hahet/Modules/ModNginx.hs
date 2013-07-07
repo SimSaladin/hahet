@@ -1,13 +1,29 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+
 -- | Nginx configuration module for Hahet.
 module Hahet.Modules.ModNginx where
 
 import Data.Text
 import Hahet
 
-data NginxServer = NginxServer
-        { nginxServers :: [Text]
-        }
+data Nginx = Nginx
+    { nginxFilesRoot :: FilePath
+    , nginxServers   :: [Text]
+    } deriving (Typeable)
 
-instance HahetModule NginxServer where
-    dependsOnPkgs conf = []
+instance Default Nginx where
+    def = Nginx "/etc/nginx"
+                []
+
+instance HahetModule Nginx where
+    hmInit = nginx
+
+nginx :: ModuleHandler Nginx c
+nginx nserver = do
+    let dir      = nginxFilesRoot nserver
+        basefile = dir
+
+    requirePkg "nginx"
+    manageDir  dir
+    
+    manageFile "/etc/nginx/" $ \fp ->
+        return ""

@@ -4,6 +4,5 @@ module Hahet
     ) where
 
 import Data.Typeable        as Hahet (Typeable(..))
+import Data.Default         as Hahet (Default(..))
 import Hahet.Core           as Hahet
-import Hahet.Core.Module    as Hahet
-import Hahet.Core.PackageManager as Hahet

@@ -39,4 +39,21 @@ main = do
                       -- command-line.
 ```
 
+Thought-of Features for modules
+-------------------------------
+
+Some (most?) features would be impelemented in classes and required by modules
+optionally as constraints on the `Configuration`.
+
+### Package management
+
+### File management
+
+### User and group management
+
+### Daemons (systemd (/ sysvinit?))
+
+### Cron jobs
+
+### Mailing
 

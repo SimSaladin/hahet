@@ -18,12 +18,27 @@ library
   exposed-modules:     TestSystemConf
                        Hahet
                        Hahet.Core
-                       Hahet.Core.Module
+                       Hahet.Core.Internals
                        Hahet.Core.PackageManager
   -- other-modules:       
-  build-depends: base ==4.6.*
-               , text ==0.11.*
-               , mtl  ==2.1.*
+  build-depends: base         ==4.6.*
+               , text         ==0.11.*
+               , mtl          ==2.1.*
+               , data-default ==0.5.*
 
   extensions: TypeFamilies
               GeneralizedNewtypeDeriving
+              MultiParamTypeClasses
+              OverloadedStrings
+              FlexibleInstances
+              DeriveDataTypeable
+
+executable    hahet_test_config
+   main-is:   main.hs
+   build-depends: base, text, mtl, data-default
+   extensions: TypeFamilies
+               GeneralizedNewtypeDeriving
+               MultiParamTypeClasses
+               OverloadedStrings
+               FlexibleInstances
+               DeriveDataTypeable
