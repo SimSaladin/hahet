@@ -14,14 +14,11 @@ instance Default Nginx where
     def = Nginx "/etc/nginx"
                 []
 
-instance HahetModule Nginx where
-    hmInit = nginx
+instance Hahet c => HahetModule Nginx c where
+    hmInit nserver = do
+        let dir      = nginxFilesRoot nserver
+            basefile = dir
 
-nginx :: ModuleHandler Nginx c
-nginx nserver = do
-    let dir      = nginxFilesRoot nserver
-        basefile = dir
-
-    manage $ Pkg "nginx"
-    manage $ Directory dir def
-    manage $ File basefile def undefined
+        manage $ Pkg "nginx"
+        manage $ Directory dir def
+        manage $ File basefile def undefined

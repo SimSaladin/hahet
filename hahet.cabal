@@ -26,6 +26,8 @@ library
                , mtl          ==2.1.*
                , data-default ==0.5.*
                , containers   ==0.5.*
+               , directory    ==1.2.*
+               , shelly       ==1.3.0.*
 
   extensions: TypeFamilies
               GeneralizedNewtypeDeriving
@@ -33,11 +35,14 @@ library
               OverloadedStrings
               FlexibleInstances
               DeriveDataTypeable
-               GADTs
+              GADTs
+              ExtendedDefaultRules
+              RankNTypes
+              NoImplicitPrelude
 
 executable    hahet_test_config
    main-is:   main.hs
-   build-depends: base, text, mtl, data-default, containers
+   build-depends: base, text, mtl, data-default, containers, shelly, directory
    extensions: TypeFamilies
                GeneralizedNewtypeDeriving
                MultiParamTypeClasses
@@ -45,3 +50,6 @@ executable    hahet_test_config
                FlexibleInstances
                DeriveDataTypeable
                GADTs
+               ExtendedDefaultRules
+               RankNTypes
+               NoImplicitPrelude

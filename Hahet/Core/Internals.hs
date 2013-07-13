@@ -1,22 +1,30 @@
-{-# LANGUAGE RankNTypes #-}
 -- | The very basic datatypes for configuration creation.
 module Hahet.Core.Internals where
 
+import Prelude hiding (FilePath)
 import Data.String
 import Data.Text (Text)
 import Data.Default
+import Data.Monoid ((<>))
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Typeable
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
+import Shelly
+import qualified System.Directory as SD
+default (Text)
 
 -- | Logging system - for now :)
 mlog :: MonadIO m => String -> m ()
 mlog = liftIO . putStrLn
 
+convertFilePath = T.unpack . toTextIgnore
+
 -- * Targets
+
+type Conflict = Text
 
 -- | The primitive of configurations.
 class Typeable target => Target target where
@@ -25,22 +33,44 @@ class Typeable target => Target target where
     targetApplyAll :: [target] -> IO ()
     targetApplyAll = mapM_ targetApply
 
-    targetConflicts :: target -> target -> IO ()
+    targetConflicts :: target -> target -> Maybe Conflict
+    targetConflicts _ _ = Nothing
+
 data AppTarget where
     MkTarget :: Target a => a -> AppTarget
 
--- ** File Targets
+-- ** File targets
 
 -- | A file target.
-data FileNode = File      FilePath FileSettings AppFileSource
-              | Directory FilePath FileSettings
+data FileNode = File            FilePath FileSettings AppFileSource
+              | Directory       FilePath FileSettings
+              | DirectorySource FilePath FileSettings AppDirectorySource
             deriving Typeable
+
+data Permissions = Octal Int Int Int Int -- ^ Set permissions in octal notation.
+                 | PermNoop              -- ^ Do not touch permissions.
+
+instance Show Permissions where
+    show (Octal i1 i2 i3 i4) = show i1 ++ show i2 ++ show i3 ++ show i4
+    show PermNoop = "(No change)"
+
+instance Read Permissions where
+    readPrec
+
+type Owner = Text
+type Group = Text
 
 -- | Filesystem settings for a file.
 data FileSettings = FileSettings
-    { fOwner :: Text
-    , fGroup :: Text
+    { fOwner :: Owner
+    , fGroup :: Group
+    , fPerms :: Permissions
     }
+
+instance Default FileSettings where
+    def = FileSettings "" "" PermNoop
+
+-- *** File sources
 
 -- | Some source which provides the content of a file
 class FileSource source where
@@ -50,13 +80,38 @@ class FileSource source where
 data AppFileSource where
     MkFileSource :: FileSource a => a -> AppFileSource
 
-instance Default FileSettings where
-    def = FileSettings "" ""
+-- | For implementing different means of populating a directory. This could be
+-- an archive, git repo or what ever.
+class DirectorySource source where
+    directorySource :: source -> FilePath -> IO Text
+
+-- | Wrapping @DirectorySource@ to allow storing in a File.
+data AppDirectorySource where
+    MkAppDirectorySource :: DirectorySource a => a -> AppDirectorySource
 
 instance Target FileNode where
-    targetApply t = mlog "File target uimplemented!"
+    targetApply (File path settings source) = shellyNoDir $ do
+        handlePerms path (fPerms settings)
+        test_e path
+        return ()
 
--- ** Pkg Targets
+    targetApply (Directory path settings) = shellyNoDir $ do
+        handlePerms path (fPerms settings)
+
+    targetConflicts (File p1 _ _)     (File p2 _ _)   = if p1 == p2 then Just "!" else Nothing
+    targetConflicts (File p1 _ _)    (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
+    targetConflicts (Directory p1 _) (File p2 _ _)    = if p1 == p2 then Just "!" else Nothing
+    targetConflicts (Directory p1 _) (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
+
+-- | Usees stat executable
+handlePerms :: FilePath -> Permissions -> Sh ()
+handlePerms  _ PermNoop = return ()
+handlePerms fp new      = do
+    current <- liftM (read . T.unpack) $ silently $ cmd "stat" "-c%a" fp
+    mlog $ "old: " <> show (current :: Permissions) <> " new: " <> show new
+    return ()
+
+-- ** Pkg targets
 
 -- | Pkg reperesents a package. Provides a IsString instance, so you can create
 -- a file from a String literal.
@@ -70,6 +125,7 @@ instance IsString Pkg where
     fromString = Pkg . T.pack
 
 instance Target Pkg where
+    targetApply pkg = mlog $ "Should install package " ++ show pkg
 
 
 -- * Application
@@ -100,11 +156,8 @@ class Typeable conf => Hahet conf where
     -- | Package manager this configuration uses.
     type PackageManager conf :: *
 
-
-class Typeable mconf => HahetModule mconf where
-    hmInit :: mconf -> ConfMonad c ()
-
-type ModuleHandler mc c = mc -> ConfMonad c ()
+class (Hahet c, Typeable mc) => HahetModule mc c where
+    hmInit :: mc -> ConfMonad c ()
 
 -- **  The Hahet monad
 
@@ -159,5 +212,9 @@ pushTarget t app = app
 runHahet :: Application -> [Flag] -> IO [ApplyResult]
 runHahet app flags = do
     mlog $ "-- Applying configuration: " ++ getAppIdent app
+
+    -- XXX: filtering and dependencies
+    mapM_ (mapM_ (\(MkTarget t) -> targetApply t)) $ M.elems $ appTargets app
+
     return []
 
