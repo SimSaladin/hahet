@@ -5,6 +5,16 @@ module TestSystemConf where
 import Hahet
 import Hahet.Modules.ModNginx
 
+
+-- todos
+-- - inotify limits
+-- - networking
+-- - snd alsa conf
+-- - /etc/systemd/system/auto-tunnel-functor.service
+--
+-- - pacman
+--  * mirrorlist
+
 -- | Our configuration datatype.
 data TestConf = TestConf
         deriving Typeable

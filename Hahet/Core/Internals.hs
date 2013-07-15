@@ -1,6 +1,7 @@
 -- | The very basic datatypes for configuration creation.
 module Hahet.Core.Internals where
 
+import Debug.Trace as D
 import Prelude hiding (FilePath)
 import Data.String
 import Data.Text (Text)
@@ -14,6 +15,8 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Shelly
 import qualified System.Directory as SD
+import Text.Read as R
+
 default (Text)
 
 -- | Logging system - for now :)
@@ -39,95 +42,6 @@ class Typeable target => Target target where
 data AppTarget where
     MkTarget :: Target a => a -> AppTarget
 
--- ** File targets
-
--- | A file target.
-data FileNode = File            FilePath FileSettings AppFileSource
-              | Directory       FilePath FileSettings
-              | DirectorySource FilePath FileSettings AppDirectorySource
-            deriving Typeable
-
-data Permissions = Octal Int Int Int Int -- ^ Set permissions in octal notation.
-                 | PermNoop              -- ^ Do not touch permissions.
-
-instance Show Permissions where
-    show (Octal i1 i2 i3 i4) = show i1 ++ show i2 ++ show i3 ++ show i4
-    show PermNoop = "(No change)"
-
-instance Read Permissions where
-    readPrec
-
-type Owner = Text
-type Group = Text
-
--- | Filesystem settings for a file.
-data FileSettings = FileSettings
-    { fOwner :: Owner
-    , fGroup :: Group
-    , fPerms :: Permissions
-    }
-
-instance Default FileSettings where
-    def = FileSettings "" "" PermNoop
-
--- *** File sources
-
--- | Some source which provides the content of a file
-class FileSource source where
-    fileSource :: source -> IO Text
-
--- | For wrapping source in a File.
-data AppFileSource where
-    MkFileSource :: FileSource a => a -> AppFileSource
-
--- | For implementing different means of populating a directory. This could be
--- an archive, git repo or what ever.
-class DirectorySource source where
-    directorySource :: source -> FilePath -> IO Text
-
--- | Wrapping @DirectorySource@ to allow storing in a File.
-data AppDirectorySource where
-    MkAppDirectorySource :: DirectorySource a => a -> AppDirectorySource
-
-instance Target FileNode where
-    targetApply (File path settings source) = shellyNoDir $ do
-        handlePerms path (fPerms settings)
-        test_e path
-        return ()
-
-    targetApply (Directory path settings) = shellyNoDir $ do
-        handlePerms path (fPerms settings)
-
-    targetConflicts (File p1 _ _)     (File p2 _ _)   = if p1 == p2 then Just "!" else Nothing
-    targetConflicts (File p1 _ _)    (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
-    targetConflicts (Directory p1 _) (File p2 _ _)    = if p1 == p2 then Just "!" else Nothing
-    targetConflicts (Directory p1 _) (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
-
--- | Usees stat executable
-handlePerms :: FilePath -> Permissions -> Sh ()
-handlePerms  _ PermNoop = return ()
-handlePerms fp new      = do
-    current <- liftM (read . T.unpack) $ silently $ cmd "stat" "-c%a" fp
-    mlog $ "old: " <> show (current :: Permissions) <> " new: " <> show new
-    return ()
-
--- ** Pkg targets
-
--- | Pkg reperesents a package. Provides a IsString instance, so you can create
--- a file from a String literal.
-data Pkg = Pkg Text
-    deriving Typeable
-
-instance Show Pkg where
-    show (Pkg txt) = T.unpack txt
-
-instance IsString Pkg where
-    fromString = Pkg . T.pack
-
-instance Target Pkg where
-    targetApply pkg = mlog $ "Should install package " ++ show pkg
-
-
 -- * Application
 
 type ModuleIdent = String
@@ -136,19 +50,20 @@ type ModuleIdent = String
 --   apply a configuration.
 data Application = Application
     { appHierarchy      :: [ModuleIdent]
+    -- Targets are sorted by the module identifier
     , appTargets        :: M.Map ModuleIdent [AppTarget]
     , appFlags          :: [Flag]
 --    , appCurTargets     :: [Target]
 --    , appCurDepModules  :: [ModuleIdent]
-    , appPkgTargets     :: [Pkg]
-    , appPkgUntargets   :: [Pkg]
+--    , appPkgTargets     :: [Pkg]
+--    , appPkgUntargets   :: [Pkg]
     --, appModules        :: Map String
     }
 
 mkApplication :: String -> Application
 mkApplication target = Application [target]
                                    M.empty
-                                   [] [] []
+                                   []
 
 -- | Base class for a Hahet config.
 class Typeable conf => Hahet conf where
@@ -178,43 +93,8 @@ confToApp c m = liftM snd -- discard the monad's result
               mlog "--   Configuration check done   --"
 
 
--- * Execution
-
 -- | Apply-time flags
 data Flag = ModuleFlag Text
           | DevFlag    Text
 
 data ApplyResult = ApplyResult
-
--- | Get the application's top configuration type.
-getAppIdent :: Application -> ModuleIdent
-getAppIdent = last . appHierarchy
-
-getModule :: Application -> ModuleIdent
-getModule = head . appHierarchy
-
-getAppHierarchy :: Application -> [ModuleIdent]
-getAppHierarchy = appHierarchy
-
-pushAppModule :: ModuleIdent -> Application -> Application
-pushAppModule i app = app
-    { appHierarchy = i : appHierarchy app }
-
-popAppModule :: Application -> Application
-popAppModule app = app{ appHierarchy = tail $ appHierarchy app }
-
-pushTarget :: Target target => target -> Application -> Application
-pushTarget t app = app
-    { appTargets = M.insertWith' (++) m [MkTarget t] $ appTargets app }
-     where m = getModule app
-
--- | Applying a configuration on system.
-runHahet :: Application -> [Flag] -> IO [ApplyResult]
-runHahet app flags = do
-    mlog $ "-- Applying configuration: " ++ getAppIdent app
-
-    -- XXX: filtering and dependencies
-    mapM_ (mapM_ (\(MkTarget t) -> targetApply t)) $ M.elems $ appTargets app
-
-    return []
-

@@ -14,12 +14,29 @@ maintainer:          samuli.thomasson@paivola.fi
 build-type:          Simple
 cabal-version:       >=1.8
 
+Test-Suite tests
+   type:    exitcode-stdio-1.0
+   main-is: test.hs
+   build-depends: base, shelly, directory, mtl, text, containers, data-default
+   extensions: TypeFamilies
+              GeneralizedNewtypeDeriving
+              MultiParamTypeClasses
+              OverloadedStrings
+              FlexibleInstances
+              DeriveDataTypeable
+              GADTs
+              ExtendedDefaultRules
+              RankNTypes
+              NoImplicitPrelude
+
 library
   exposed-modules:     TestSystemConf
                        Hahet
                        Hahet.Core
                        Hahet.Core.Internals
-                       Hahet.Core.PackageManager
+                       Hahet.Core.PackageTargets
+                       Hahet.Core.FileTargets
+                       Hahet.Core.Execution
   -- other-modules:       
   build-depends: base         ==4.6.*
                , text         ==0.11.*

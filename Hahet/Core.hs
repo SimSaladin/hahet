@@ -8,9 +8,11 @@ import Control.Monad.Reader
 import Control.Monad.State
 
 import Prelude                      as Hahet.Core hiding (FilePath)
-import Shelly.Pipe                  as Hahet.Core
+import Shelly                       as Hahet.Core
 import Hahet.Core.Internals         as Hahet.Core
-import Hahet.Core.PackageManager    as Hahet.Core
+import Hahet.Core.Execution         as Hahet.Core
+import Hahet.Core.FileTargets       as Hahet.Core
+import Hahet.Core.PackageTargets    as Hahet.Core
 
 -- ** Configuration functions
 
