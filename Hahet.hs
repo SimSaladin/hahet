@@ -1,4 +1,4 @@
--- | Module and Manifest API.
+-- | Module and Manifest API re-exports.
 module Hahet 
     ( module Hahet
     ) where

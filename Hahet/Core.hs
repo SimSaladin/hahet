@@ -1,7 +1,6 @@
 -- | API exposed from internal.
 module Hahet.Core ( module Hahet.Core ) where
 
-import Data.Text
 import Data.Typeable
 import Control.Monad
 import Control.Monad.Reader

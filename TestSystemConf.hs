@@ -5,7 +5,6 @@ module TestSystemConf where
 import Hahet
 import Hahet.Modules.ModNginx
 
-
 -- todos
 -- - inotify limits
 -- - networking
@@ -15,7 +14,8 @@ import Hahet.Modules.ModNginx
 -- - pacman
 --  * mirrorlist
 
--- | Our configuration datatype.
+-- | A datatype for a configuration "class". Values of this type should
+-- correspond to a system.
 data TestConf = TestConf
         deriving Typeable
 
@@ -26,15 +26,13 @@ type Conf = ConfMonad TestConf
 instance Hahet TestConf where
     type PackageManager TestConf = Pacman
 
--- * Modules configuration
-
-mkNginx :: Conf Nginx
-mkNginx = return def
-
--- * Execute tests
+-- * 
+configure :: Conf ()
+configure = 
+    use (def :: Nginx)
 
 main :: IO ()
 main = do
-    app     <- confToApp TestConf (use (def :: Nginx))
+    app     <- confToApp TestConf configure
     results <- runHahet app []
     return ()

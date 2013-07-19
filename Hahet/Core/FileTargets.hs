@@ -6,14 +6,10 @@ import Data.String
 import Data.Text (Text)
 import Data.Default
 import Data.Monoid ((<>))
-import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Typeable
 import Control.Monad
-import Control.Monad.Reader
-import Control.Monad.State
 import Shelly
-import qualified System.Directory as SD
 import Text.Read as R
 import Hahet.Core.Internals
 default (Text)
