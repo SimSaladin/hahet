@@ -9,8 +9,9 @@ import Data.Monoid ((<>))
 import qualified Data.Text as T
 import Data.Typeable
 import Control.Monad
-import Shelly
-import Text.Read as R
+import Shelly           hiding (path)
+import Text.Read        as R
+
 import Hahet.Core.Internals
 default (Text)
 
@@ -56,37 +57,41 @@ data FileSettings = FileSettings
 instance Default FileSettings where
     def = FileSettings "" "" PermNoop
 
--- | A file target.
-data FileNode = File            FilePath FileSettings AppFileSource
-              | Directory       FilePath FileSettings
-              | DirectorySource FilePath FileSettings AppDirectorySource
-            deriving Typeable
-
--- | Some source which provides the content of a file
+-- | Some source which provides the content of a file.
 class FileSource source where
+    -- TODO: This should be extended to conduits or something to allow easy
+    -- efficient big files.
     fileSource :: source -> IO Text
-
--- | For wrapping source in a File.
-data AppFileSource where
-    MkFileSource :: FileSource a => a -> AppFileSource
+instance FileSource Text where fileSource = return
+instance FileSource String where fileSource = return . T.pack
 
 -- | For implementing different means of populating a directory. This could be
 -- an archive, git repo or what ever.
 class DirectorySource source where
     directorySource :: source -> FilePath -> IO Text
 
--- | Wrapping @DirectorySource@ to allow storing in a File.
-data AppDirectorySource where
-    MkAppDirectorySource :: DirectorySource a => a -> AppDirectorySource
+-- | A file target.
+data FileNode where
+    File            :: FileSource s => FilePath -> FileSettings -> s -> FileNode
+    Directory       :: FilePath -> FileSettings -> FileNode
+    DirectorySource :: DirectorySource s => FilePath -> FileSettings -> s -> FileNode
+        deriving (Typeable)
 
 instance Target FileNode where
+    targetDesc (File path _ _)            = toTextIgnore path
+    targetDesc (Directory path _)         = toTextIgnore path
+    targetDesc (DirectorySource path _ _) = toTextIgnore path
+
     targetApply (File path settings source) = shellyNoDir $ do
+        exists  <- test_e path
+        unless exists $ cmd "touch" path
         handlePerms path (fPerms settings)
-        test_e path
-        return ()
+        return ResSuccess -- XXX: not really
 
     targetApply (Directory path settings) = shellyNoDir $ do
         handlePerms path (fPerms settings)
+        return ResSuccess -- XXX: Not really
+    targetApply (DirectorySource _ _ _ ) = undefined
 
     targetConflicts (File p1 _ _)     (File p2 _ _)   = if p1 == p2 then Just "!" else Nothing
     targetConflicts (File p1 _ _)    (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
@@ -97,12 +102,13 @@ getPerms :: FilePath -> Sh Permissions
 getPerms fp = liftM (read . T.unpack) . silently $ cmd "stat" "-c%a" fp
 
 -- | Usees stat executable
-handlePerms :: FilePath -> Permissions -> Sh ()
-handlePerms  _ PermNoop = return ()
+handlePerms :: FilePath -> Permissions -> Sh ApplyResult
+handlePerms  _ PermNoop = return ResNoop
 handlePerms fp new      = do
     cur <- getPerms fp
     if cur == new
-        then return ()
+        then return ResNoop
         else do
             mlog ("Perm change: " <> show cur <> " => " <> show new)
             cmd "chmod" (show new) fp
+            return ResSuccess

@@ -17,8 +17,8 @@ instance Default Nginx where
 instance Hahet c => HahetModule Nginx c where
     hmInit nserver = do
         let dir      = nginxFilesRoot nserver
-            basefile = dir
+            basefile = dir </> "nginx.conf"
 
         manage $ Pkg "nginx"
         manage $ Directory dir def
-        manage $ File basefile def undefined
+        manage $ File basefile def "nginx conf"

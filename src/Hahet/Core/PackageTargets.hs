@@ -25,4 +25,7 @@ instance IsString Pkg where
     fromString = Pkg . T.pack
 
 instance Target Pkg where
-    targetApply pkg = mlog $ "Should install package " ++ show pkg
+    targetDesc (Pkg txt) = txt
+    targetApply pkg = do
+        mlog $ "Should install package " ++ show pkg
+        return $ ResFailed "Package management not yet implemented"

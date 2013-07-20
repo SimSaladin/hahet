@@ -1,3 +1,4 @@
+-- | This module provides realization methods for configurations.
 module Hahet.Core.Execution where
 
 import Prelude hiding (FilePath)
@@ -30,13 +31,14 @@ pushTarget t app = app
     { appTargets = M.insertWith' (++) m [MkTarget t] $ appTargets app }
      where m = getModule app
 
+runTarget :: AppTarget -> IO ApplyResult
+runTarget (MkTarget t) = targetApply t
+
 -- | Applying a configuration on system.
-runHahet :: Application -> [Flag] -> IO [ApplyResult]
-runHahet app flags = do
+runHahet :: Application -> IO [ApplyResult]
+runHahet app = do
     mlog $ "-- Applying configuration: " ++ getAppIdent app
 
     -- XXX: filtering and dependencies
-    mapM_ (mapM_ (\(MkTarget t) -> targetApply t)) $ M.elems $ appTargets app
-
-    return []
-
+    results <- mapM (mapM runTarget) (M.elems $ appTargets app)
+    return $ concat results

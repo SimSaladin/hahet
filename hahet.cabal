@@ -14,29 +14,19 @@ maintainer:          samuli.thomasson@paivola.fi
 build-type:          Simple
 cabal-version:       >=1.8
 
-Test-Suite tests
-   type:    exitcode-stdio-1.0
-   main-is: test.hs
-   build-depends: base, shelly, directory, mtl, text, containers, data-default
-   extensions: TypeFamilies
-              GeneralizedNewtypeDeriving
-              MultiParamTypeClasses
-              OverloadedStrings
-              FlexibleInstances
-              DeriveDataTypeable
-              GADTs
-              ExtendedDefaultRules
-              RankNTypes
-              NoImplicitPrelude
-
 library
-  exposed-modules:     TestSystemConf
-                       Hahet
-                       Hahet.Core
-                       Hahet.Core.Internals
-                       Hahet.Core.PackageTargets
-                       Hahet.Core.FileTargets
-                       Hahet.Core.Execution
+  hs-source-dirs:  src
+  exposed-modules:
+      Hahet
+      Hahet.Core
+      Hahet.Core.Internals
+      Hahet.Core.Execution
+      Hahet.Core.PackageTargets
+      Hahet.Core.FileTargets
+      Hahet.Core.ServiceTargets
+      Hahet.Modules.DateTimeManager
+      Hahet.Modules.ModNginx
+
   -- other-modules:       
   build-depends: base         ==4.6.*
                , text         ==0.11.*
@@ -56,18 +46,29 @@ library
               ExtendedDefaultRules
               RankNTypes
               NoImplicitPrelude
+
   ghc-options: -Wall -fno-warn-type-defaults
 
 executable    hahet_test_config
-   main-is:   main.hs
-   build-depends: base, text, mtl, data-default, containers, shelly, directory
+   hs-source-dirs: hahet-example
+   main-is:        Main.hs
+   -- other-modules:
+
+   build-depends: base, hahet
+
+Test-Suite tests
+   hs-source-dirs: tests
+   main-is: test.hs
+   type:    exitcode-stdio-1.0
+   build-depends: base, hahet
+   -- shelly, directory, mtl, text, containers, data-default
    extensions: TypeFamilies
-               GeneralizedNewtypeDeriving
-               MultiParamTypeClasses
-               OverloadedStrings
-               FlexibleInstances
-               DeriveDataTypeable
-               GADTs
-               ExtendedDefaultRules
-               RankNTypes
-               NoImplicitPrelude
+              GeneralizedNewtypeDeriving
+              MultiParamTypeClasses
+              OverloadedStrings
+              FlexibleInstances
+              DeriveDataTypeable
+              GADTs
+              ExtendedDefaultRules
+              RankNTypes
+              NoImplicitPrelude

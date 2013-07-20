@@ -1,9 +1,10 @@
 {-# LANGUAGE TypeFamilies, DeriveDataTypeable, ConstraintKinds, OverloadedStrings #-}
 
-module TestSystemConf where
+module Main where
 
 import Hahet
 import Hahet.Modules.ModNginx
+import Hahet.Modules.DateTimeManager
 
 -- todos
 -- - inotify limits
@@ -28,11 +29,13 @@ instance Hahet TestConf where
 
 -- * 
 configure :: Conf ()
-configure = 
-    use (def :: Nginx)
+configure = do
+    -- use (def :: Nginx)
+    use $ DTM "Europe/Helsinki" True
 
 main :: IO ()
 main = do
     app     <- confToApp TestConf configure
-    results <- runHahet app []
+    putStrLn ""
+    results <- runHahet app
     return ()
