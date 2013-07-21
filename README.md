@@ -57,6 +57,12 @@ XXX: Use these combinators instead?
 
 ### Users and Groups
 
+### Mounts
+
+don't add the same disk twice to fstab!
+
+### Package management
+
 ### Services (systemd)
 
 ```haskell
