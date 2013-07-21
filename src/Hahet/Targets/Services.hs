@@ -1,10 +1,7 @@
 module Hahet.Targets.Services where
 
-import Prelude
-import Data.Text (Text)
-import Data.Typeable
-
-import Hahet.Core.Internals
+import Hahet.Targets
+import Hahet.Imports
 
 type Started = Maybe Bool
 

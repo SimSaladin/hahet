@@ -17,12 +17,13 @@ cabal-version:       >=1.8
 library
   hs-source-dirs:  src
   exposed-modules: Hahet
-                   Hahet.Core
-                   Hahet.Core.Internals
-                   Hahet.Core.Execution
+                   Hahet.Apply
+                   Hahet.Internal
+                   Hahet.Targets
                    Hahet.Targets.Packages
                    Hahet.Targets.FileNodes
                    Hahet.Targets.Services
+                   Hahet.Modules
                    Hahet.Modules.DateTimeManager
                    Hahet.Modules.ModNginx
                    Hahet.Modules.SSH

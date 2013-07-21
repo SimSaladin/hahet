@@ -1,5 +1,38 @@
 -- | All internal datatypes of Hahet.
-module Hahet.Core.Internals where
+module Hahet.Internal
+   (
+   -- * Utils
+   mlog, convertFilePath
+
+   -- * C Monad
+   , C(..), configure
+
+   -- * H Monad
+   , H, apply
+    
+   -- * Application
+   , Application(..)
+   , mkApplication
+   , Flag(..)
+   , getConfiguration
+
+    -- * Modules
+   , ModuleIdent
+   , HahetModule(..)
+   , ($*)
+
+   -- * Targets
+   , Target(..)
+   , ApplyResult(..)
+   , Conflict
+   , AppTarget(..)
+   -- ** Sh
+   , AfterSh(..)
+   -- ** Deps
+   , TargetGroup(..)
+   , (==>)
+
+   )  where
 
 import Prelude hiding (FilePath)
 import Data.Text (Text)

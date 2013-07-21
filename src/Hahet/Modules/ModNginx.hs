@@ -3,8 +3,8 @@
 -- | Nginx configuration module for Hahet.
 module Hahet.Modules.ModNginx where
 
-import Data.Text
-import Hahet
+import Hahet.Modules
+import Hahet.Imports
 
 data Nginx = Nginx
     { nginxFilesRoot :: FilePath

@@ -1,15 +1,14 @@
 -- | This module provides realization methods for configurations.
-module Hahet.Core.Execution where
+module Hahet.Apply where
 
 import Prelude hiding (FilePath)
 import Data.Text (Text)
-import Control.Monad
 import Data.Typeable
 import qualified Data.Text as T
 import Shelly hiding (trace)
 import qualified Data.Map as M
 
-import Hahet.Core.Internals
+import Hahet.Internal
 
 default (Text)
 

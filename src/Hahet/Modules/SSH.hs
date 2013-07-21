@@ -1,6 +1,7 @@
 module Hahet.Modules.SSH where
 
-import Hahet
+import Hahet.Modules
+import Hahet.Imports
 
 data SSHClientConf = SSHClientConf
 

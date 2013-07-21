@@ -6,6 +6,8 @@
 
 module Manifests where
 
+import Prelude
+import Data.Typeable
 import Hahet
 import Hahet.Modules.DateTimeManager
 import Hahet.Modules.SSH

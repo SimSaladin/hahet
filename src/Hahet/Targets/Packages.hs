@@ -2,16 +2,11 @@
 -- | Defines the package manager interface
 module Hahet.Targets.Packages where
 
-import Prelude
-import Control.Monad
-import Data.Text
+import Hahet.Targets
+import Hahet.Imports
 import qualified Data.Text as T
 import Data.String
-import Data.Typeable
-import Shelly
-import Control.Monad.Trans
 
-import Hahet.Core.Internals
 
 -- * Interface
 

@@ -1,9 +1,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Hahet.Modules.DateTimeManager where
 
-import Hahet
+import Hahet.Modules
+import Hahet.Imports
 import qualified Data.Text as T
-import GHC.IO.Handle
+import           GHC.IO.Handle
+
 default(Text)
 
 type TimeZone = Text

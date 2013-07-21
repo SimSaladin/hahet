@@ -32,20 +32,14 @@ module Hahet.Targets.FileNodes
     , DirectorySource(..)
     ) where
 
-import           Prelude                  hiding (FilePath, writeFile)
-import           Control.Monad
-import           Control.Monad.Trans (lift)
-import           Data.List           (intercalate)
-import           Data.Monoid         ((<>))
-import           Data.String
-import           Data.Text           (Text)
-import qualified Data.Text as T
-import           Data.Text.IO
-import           Data.Typeable
-import           Shelly                   hiding (path)
-import           Text.Read           as R hiding (lift)
+import           Hahet.Targets
+import           Hahet.Imports hiding (writeFile, path)
 
-import Hahet.Core.Internals
+import           Data.List            (intercalate)
+import           Data.String
+import qualified Data.Text     as T
+import           Data.Text.IO
+import           Text.Read     as R hiding (lift)
 
 default (Text)
 
