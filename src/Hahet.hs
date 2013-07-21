@@ -7,4 +7,5 @@ import Data.Typeable        as Hahet (Typeable(..))
 import Data.Default         as Hahet (Default(..))
 import Data.Text            as Hahet (Text)
 import Data.Monoid          as Hahet
+import Text.InterpolatedString.Perl6 as Hahet
 import Hahet.Core           as Hahet

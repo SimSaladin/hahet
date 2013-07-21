@@ -1,28 +1,29 @@
-Hahet Configuration Management
-==============================
+Hahet Configuration Management Tools
+====================================
 
-Hahet is yet another configuration management system which compared to others
-aims to leverage the simplicity and strong typing of Haskell to provide a
-conscise integration system.
-
-**Currently in the very beginning of development.**
-
+**Disclaimer: This projects is currently in the very beginning of development.
 If you wish to contribute, have ideas for the interface, or just simply want to
-comment something, you're very welcome to do so!
+comment something, you're very welcome to do so!**
 
-Implemantation Draft
---------------------
+Hahet is a yet another configuration management system written in Haskell. It is
+intended to be a completely open-source replacement for Puppet/Chef.
+The goal is to to provide a conscise, extremely freely extendable configuration
+management and integration system.
 
-In this document a **system** refers to a computer (virtual or not)
-running some OS.
+Hahet leverages Haskell's type system and provides means to:
+* Create and apply your own configurations for your systems, based on different
+  targets (files, directories, packgaes, ...).
+* Write reusable configurations as modules, with your custom interface.
+* Easily extend the system by defining your own targets.
 
-Hahet consists of the *Core* `Hahet.Core`, which defines the interface for
-*Modules*. A Module specializes in some component of a system (ssh, webserver,
-...) and exposes its own Haskell configuration interface for it.
-`Hashet.Modules` provides some default modules.
+Getting started
+---------------
 
-A *Configuration* for a system is written as a normal haskell program. 
-Something along the lines of:
+In this document a **system** refers to a computer (virtual or not) running some
+OS.
+
+A *Configuration* for a system is written as a normal haskell program.  Let's
+dive into an example:
 
 ```haskell
 myConf = do
@@ -39,32 +40,42 @@ main = do
                       -- command-line.
 ```
 
-### Applying
+Targets
+-------
 
-We apply Targets. 
+### Packages
 
-Thought-of Features for modules
--------------------------------
+### FileNodes
 
-Some (most?) features would be impelemented in classes and required by modules
-optionally as constraints on the `Configuration`.
+XXX: Use these combinators instead?
 
-### Package management
+```haskell
+/> setOwner "root
+/$ setPerms "644"
+/< [qc|
+```
 
-### File management
+### Users and Groups
 
-### User and group management
+### Services (systemd)
 
-### Daemons (systemd (/ sysvinit?))
+```haskell
+manage $ Service "sshd"
+```
 
-### Cron jobs
-
-### Mailing
+### CronJobs
 
 
-Configuration tutorial
+Modules
+-------
+
+**TODO** *How to write a module?*
+
+
+Implementation details
 ----------------------
 
-
-Module tutorial
----------------
+Hahet consists of the *Core* `Hahet.Core`, which defines the interface for
+*Modules*. A Module specializes in some component of a system (ssh, webserver,
+...) and exposes its own Haskell configuration interface for it.
+`Hashet.Modules` provides some default modules.

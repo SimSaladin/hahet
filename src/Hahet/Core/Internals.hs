@@ -1,4 +1,4 @@
--- | The very basic datatypes for configuration creation.
+-- | All internal datatypes of Hahet.
 module Hahet.Core.Internals where
 
 import Prelude hiding (FilePath)
@@ -79,7 +79,12 @@ type ModuleIdent = String
 --     interface.
 class Typeable mc => HahetModule mc c where
     -- | How to actualize configuration targets from the module data.
-    fromModule :: mc -> C c ()
+    fromModule   :: mc -> C c ()
+
+--    modifyModule :: mc -> (mc -> mc) -> C c mc
+
+($*) :: HahetModule mc c => C c mc -> (mc -> mc) -> C c mc
+m $* f = return . f =<< m
 
 -- * Targets
 
@@ -97,7 +102,7 @@ type Conflict = Text
 -- (@manage@), or revoked (@revoke@).
 --
 -- Minimal complete implemantation: @targetApply@.
-class Typeable target => Target c target where
+class (Typeable target) => Target c target where
 
     -- | How to describe a target in (verbose) logging.
     targetDesc :: c -> target -> Text

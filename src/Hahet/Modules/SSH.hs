@@ -18,10 +18,20 @@ instance Default SSH where
               undefined
               Nothing
 
+ssh :: C c SSH
+ssh = return def
+
 instance PackageManagement c => HahetModule SSH c where
-    fromModule ssh = do
-        manage $ sshPkgs ssh
+
+    fromModule mc = do
+        manage $ sshPkgs mc
         manage $ Directory "/etc/ssh"
+                    /- setOwner "root"
+                    /- setPerms "755"
+
         manage $ File "/etc/ssh/ssh_config"
                     /- setOwner "root"
-                    >>> ""
+                    /- setPerms "644"
+                    >>> [qc|
+Mui.
+|]

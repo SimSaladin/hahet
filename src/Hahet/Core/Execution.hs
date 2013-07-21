@@ -3,9 +3,10 @@ module Hahet.Core.Execution where
 
 import Prelude hiding (FilePath)
 import Data.Text (Text)
+import Control.Monad
 import Data.Typeable
 import qualified Data.Text as T
-import Shelly
+import Shelly hiding (trace)
 import qualified Data.Map as M
 
 import Hahet.Core.Internals
