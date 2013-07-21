@@ -21,5 +21,5 @@ instance PackageManagement c => HahetModule Nginx c where
             basefile = dir </> "nginx.conf"
 
         manage $ Pkg "nginx"
-        manage $ Directory dir def
-        manage $ File basefile def "nginx conf"
+        manage $ Directory (toFileNode dir)
+        manage $ File (toFileNode basefile) >>> "nginx conf"

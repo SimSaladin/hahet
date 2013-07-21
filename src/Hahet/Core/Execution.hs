@@ -2,7 +2,6 @@
 module Hahet.Core.Execution where
 
 import Prelude hiding (FilePath)
-import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Typeable
 import qualified Data.Text as T

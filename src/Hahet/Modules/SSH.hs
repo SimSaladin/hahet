@@ -21,5 +21,7 @@ instance Default SSH where
 instance PackageManagement c => HahetModule SSH c where
     fromModule ssh = do
         manage $ sshPkgs ssh
-        manage $ Directory "/etc/ssh" def
-        manage $ File "/etc/ssh/ssh_config" def ""
+        manage $ Directory "/etc/ssh"
+        manage $ File "/etc/ssh/ssh_config"
+                    /- setOwner "root"
+                    >>> ""

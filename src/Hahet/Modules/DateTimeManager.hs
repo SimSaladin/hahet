@@ -18,7 +18,7 @@ instance PackageManagement c => HahetModule DTM c where
         when useNTP $ do
             manage $ Pkg     "ntpd"
             manage $ Service "ntpd.service" (Just True)
-            manage $ File "/etc/ntpd.conf" def "servers pool.ntp.org"
+            manage $ File "/etc/ntpd.conf" >>> "servers pool.ntp.org"
 
         manage $ AfterSh $ do
             current <- curTimeZone
