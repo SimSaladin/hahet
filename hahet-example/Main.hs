@@ -1,4 +1,8 @@
-{-# LANGUAGE TypeFamilies, DeriveDataTypeable, ConstraintKinds, OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE DeriveDataTypeable     #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
 
 module Main where
 
@@ -21,21 +25,21 @@ data TestConf = TestConf
         deriving Typeable
 
 -- | Convenience synonym.
-type Conf = ConfMonad TestConf
+type Conf = C TestConf
 
 -- | Make our conf instance of the Hahet typeclass.
-instance Hahet TestConf where
-    type PackageManager TestConf = Pacman
+instance PackageManagement TestConf where
+    pkgManager _ = pacman
 
 -- * 
-configure :: Conf ()
-configure = do
+conf :: Conf ()
+conf =
     -- use (def :: Nginx)
     use $ DTM "Europe/Helsinki" True
 
 main :: IO ()
 main = do
-    app     <- confToApp TestConf configure
+    app     <- configure TestConf conf
     putStrLn ""
     results <- runHahet app
     return ()

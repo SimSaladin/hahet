@@ -3,6 +3,7 @@ module Hahet.Core.Execution where
 
 import Prelude hiding (FilePath)
 import Data.Text (Text)
+import Shelly
 import qualified Data.Map as M
 
 import Hahet.Core.Internals
@@ -10,35 +11,36 @@ import Hahet.Core.Internals
 default (Text)
 
 -- | Get the application's top configuration type.
-getAppIdent :: Application -> ModuleIdent
+getAppIdent :: Application c -> ModuleIdent
 getAppIdent = last . appHierarchy
 
-getModule :: Application -> ModuleIdent
+getModule :: Application c -> ModuleIdent
 getModule = head . appHierarchy
 
-getAppHierarchy :: Application -> [ModuleIdent]
+getAppHierarchy :: Application c -> [ModuleIdent]
 getAppHierarchy = appHierarchy
 
-pushAppModule :: ModuleIdent -> Application -> Application
+pushAppModule :: ModuleIdent -> Application c -> Application c
 pushAppModule i app = app
     { appHierarchy = i : appHierarchy app }
 
-popAppModule :: Application -> Application
+popAppModule :: Application c -> Application c
 popAppModule app = app{ appHierarchy = tail $ appHierarchy app }
 
-pushTarget :: Target target => target -> Application -> Application
+pushTarget :: Target c target => target -> Application c -> Application c
 pushTarget t app = app
     { appTargets = M.insertWith' (++) m [MkTarget t] $ appTargets app }
      where m = getModule app
 
-runTarget :: AppTarget -> IO ApplyResult
-runTarget (MkTarget t) = targetApply t
+runTarget :: Application c -> AppTarget c -> IO ApplyResult
+runTarget app (MkTarget t) = shellyNoDir $ apply app $ targetApply t
 
 -- | Applying a configuration on system.
-runHahet :: Application -> IO [ApplyResult]
+runHahet :: Application c -> IO [ApplyResult]
 runHahet app = do
     mlog $ "-- Applying configuration: " ++ getAppIdent app
 
     -- XXX: filtering and dependencies
-    results <- mapM (mapM runTarget) (M.elems $ appTargets app)
+    results <- mapM (mapM (runTarget app))
+                    (M.elems $ appTargets app)
     return $ concat results

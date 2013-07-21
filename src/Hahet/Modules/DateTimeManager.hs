@@ -1,7 +1,10 @@
+{-# LANGUAGE UndecidableInstances #-}
 module Hahet.Modules.DateTimeManager where
 
 import Hahet
 import qualified Data.Text as T
+import GHC.IO.Handle
+default(Text)
 
 type TimeZone = Text
 
@@ -10,19 +13,19 @@ data DTM = DTM
     , dtmUseNtp   :: Bool
     } deriving (Typeable)
 
-instance Hahet c => HahetModule DTM c where
-    hmInit dtm = do
-        unless (not $ dtmUseNtp dtm) $ do
+instance PackageManagement c => HahetModule DTM c where
+    fromModule DTM{dtmTimezone = timezone, dtmUseNtp = useNTP} = do
+        when useNTP $ do
             manage $ Pkg     "ntpd"
-            manage $ Service "ntpd" (Just True)
+            manage $ Service "ntpd.service" (Just True)
             manage $ File "/etc/ntpd.conf" def "servers pool.ntp.org"
-        manage $ AfterSh $ do 
-            current <- curTimeZone
-            let timezone = dtmTimezone dtm
 
-            mlog $ "Current timezone is " <> T.unpack current <> if current == timezone 
-                then " which is the wanted timezone."
-                else ", which differs from the wanted timezone" <> T.unpack timezone
+        manage $ AfterSh $ do
+            current <- curTimeZone
+            mlog $ "Current timezone is "
+                <> show current <> if current == timezone 
+                    then ", which is the wanted timezone."
+                    else ", which differs from the wanted timezone " <> show timezone
 
             unless (current == timezone) $
                 cmd "timedatectl" "set-timezone" timezone
@@ -32,5 +35,7 @@ instance Hahet c => HahetModule DTM c where
 
 -- | Get the current timezone from the system.
 curTimeZone :: Sh TimeZone
-curTimeZone = 
-    cmd "timedatectl" "status" -|- cmd "awk" "/Timezone/{print $2}"
+curTimeZone = liftM T.pack $ print_stdout False $ escaping False $
+    runHandle "timedatectl" ["status | awk '/Timezone/{printf $2}'"]
+              (liftIO . hGetLine)
+              -- XXX: why this does not add a newline?

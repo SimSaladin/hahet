@@ -11,9 +11,9 @@ type Started = Maybe Bool
 data Service = Service Text Started
     deriving (Typeable, Show)
 
-instance Target Service where
-    targetDesc (Service service _) = service
-    targetApply (Service service Nothing) = return ResNoop
-    targetApply (Service service mstate ) 
-        | mstate == Just False = return $ ResFailed "Not yet implemented"
-        | mstate == Just True  = return $ ResFailed "Not yet implemented"
+instance Target c Service where
+    targetDesc  (Service service _) = return service
+
+    targetApply (Service _ Nothing)      = return ResNoop
+    targetApply (Service _ (Just False)) = return $ ResFailed "Not yet implemented"
+    targetApply (Service _ (Just True))  = return $ ResFailed "Not yet implemented"

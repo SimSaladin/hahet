@@ -36,16 +36,16 @@ type Conflict = Text
 -- (@manage@), or revoked (@revoke@).
 --
 -- Minimal complete implemantation: @targetApply@.
-class Typeable target => Target target where
+class Typeable target => Target c target where
 
     -- | How to describe a target in (verbose) logging.
-    targetDesc :: target -> Text
+    targetDesc :: target -> C c Text
 
     -- | A function which applies the target and returns a @ApplyResult@.
-    targetApply    :: target -> IO ApplyResult
+    targetApply    :: target -> H c ApplyResult
 
     -- | Apply a list of targets of some type.
-    targetApplyAll :: [target] -> IO ()
+    targetApplyAll :: [target] -> H c ()
     targetApplyAll = mapM_ targetApply
 
     -- | To check whether the target conflicts with another target of the same
@@ -55,15 +55,15 @@ class Typeable target => Target target where
     targetConflicts _ _ = Nothing
 
 -- | For wrapping targets for an Application.
-data AppTarget where
-    MkTarget :: Target a => a -> AppTarget
+data AppTarget c where
+    MkTarget :: Target c a => a -> AppTarget c
 
 newtype AfterSh = AfterSh { unAfterSh :: Sh ApplyResult }
     deriving (Typeable)
 
-instance Target AfterSh where
-    targetDesc _ = "Shell script"
-    targetApply  = shellyNoDir . print_stdout False . unAfterSh
+instance Target c AfterSh where
+    targetDesc _ = return "Shell script"
+    targetApply  = shellyNoDir . unAfterSh
 
 -- ** Flow control
 
@@ -71,65 +71,77 @@ instance Target AfterSh where
 data TargetGroup a b = TargetGroup a b
     deriving (Typeable)
 
-instance (Target a, Target b) => Target (TargetGroup a b) where
-    targetDesc  _ = "(group)"
+instance (Target c a, Target c b) => Target c (TargetGroup a b) where
+    targetDesc  _ = return "(group)"
     targetApply (TargetGroup ta tb) = do
         res <- targetApply ta
         case res of
             ResSuccess  -> targetApply tb
             _           -> return res
 
--- * Target combinators
+-- ** Target combinators
 
 -- | On change
-(==>) :: (Target a, Target b) => a -> b -> TargetGroup a b
+(==>) :: (Target c a, Target c b) => a -> b -> TargetGroup a b
 x ==> y = TargetGroup x y
 infixl 5 ==>
 
--- * Application
+-- * Modules
 
 type ModuleIdent = String
+
+-- | Steps for writing a module:
+--  1. Create a base datatype for the module (its configuration etc.)
+--  2. Make it an instance of the HahetModule class.
+--  3. Export the datatype and relevant constructors or your configuration
+--     interface.
+class Typeable mc => HahetModule mc c where
+    -- | How to actualize configuration targets from the module data.
+    fromModule :: mc -> C c ()
+
+-- * Application
+
+-- | Application is a configuration instance.
+--   Contains everything needed to apply the configuration.
+data Application conf = Application
+    { appConf           :: conf -- ^ Origin of the application.
+    , appHierarchy      :: [ModuleIdent] -- ^ Defines the modules in order they should be applied.
+    , appTargets        :: M.Map ModuleIdent [AppTarget conf] -- ^ Targets are sorted by the module identifier.
+    , appFlags          :: [Flag] -- ^ Flags that should be applied.
+    }
+
+mkApplication :: conf -> Application conf
+mkApplication conf = Application conf
+                                 []
+                                 M.empty
+                                 []
+
+type H conf a = ReaderT (Application conf) Sh a
+    --deriving (Monad, MonadIO, MonadReader (Application conf))
+
+getConfiguration :: H conf conf
+getConfiguration = asks appConf
+
+apply :: Application conf -> H conf a -> Sh a
+apply app h = runReaderT h app
+
+-- * Configuration
+
+-- | Configuration monad is used to build an Application.
+newtype C conf a = C {
+    unC :: ReaderT conf (StateT (Application conf) IO) a
+    } deriving (Monad, MonadIO, MonadReader conf, MonadState (Application conf))
+
+-- | Running a configuration monad
+configure :: conf -> C conf () -> IO (Application conf)
+configure c cm = liftM snd -- discard the monad's result
+    $ runStateT (runReaderT (unC cm') c) (mkApplication c)
+  where
+      -- Logging configuration build start/end.
+      cm' = do mlog "-- Starting configuration check --"
+               cm
+               mlog "--   Configuration check done   --"
 
 -- | Apply-time flags for an Application.
 data Flag = ModuleFlag Text
           | DevFlag    Text
-
--- | Application is a configuration instance. Contains everything needed to
---   apply the configuration.
-data Application = Application
-    { appHierarchy      :: [ModuleIdent]                 -- ^ Defines the modules in order they should be applied.
-    , appTargets        :: M.Map ModuleIdent [AppTarget] -- ^ Targets are sorted by the module identifier.
-    , appFlags          :: [Flag]                        -- ^ Flags that should be applied.
-    }
-
-mkApplication :: String -> Application
-mkApplication target = Application [target]
-                                   M.empty
-                                   []
-
--- | Base class for a Hahet config.
-class Typeable conf => Hahet conf where
-
-    -- | Package manager this configuration uses.
-    type PackageManager conf :: *
-
-class (Hahet c, Typeable mc) => HahetModule mc c where
-    hmInit :: mc -> ConfMonad c ()
-
--- **  The Hahet monad
-
--- | Configuration monad.
-newtype ConfMonad conf a = ConfMonad {
-    unConfMonad :: ReaderT conf (StateT Application IO) a
-    } deriving (Monad, MonadIO, MonadReader conf, MonadState Application)
-
--- | Run a configuration monad
-confToApp :: Hahet conf => conf -> ConfMonad conf a -> IO Application
-confToApp c m = liftM snd -- discard the monad's result
-    $ runStateT (runReaderT (unConfMonad m') c)
-    $ mkApplication $ show $ typeOf c
-  where
-      -- Logging for configuration check
-      m' = do mlog "-- Starting configuration check --"
-              m
-              mlog "--   Configuration check done   --"

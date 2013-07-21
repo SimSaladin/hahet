@@ -61,14 +61,13 @@ Test-Suite tests
    main-is: test.hs
    type:    exitcode-stdio-1.0
    build-depends: base, hahet
-   -- shelly, directory, mtl, text, containers, data-default
    extensions: TypeFamilies
-              GeneralizedNewtypeDeriving
-              MultiParamTypeClasses
-              OverloadedStrings
-              FlexibleInstances
-              DeriveDataTypeable
-              GADTs
-              ExtendedDefaultRules
-              RankNTypes
-              NoImplicitPrelude
+               GeneralizedNewtypeDeriving
+               MultiParamTypeClasses
+               OverloadedStrings
+               FlexibleInstances
+               DeriveDataTypeable
+               GADTs
+               ExtendedDefaultRules
+               RankNTypes
+               NoImplicitPrelude

@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Nginx configuration module for Hahet.
 module Hahet.Modules.ModNginx where
@@ -14,8 +15,8 @@ instance Default Nginx where
     def = Nginx "/etc/nginx"
                 []
 
-instance Hahet c => HahetModule Nginx c where
-    hmInit nserver = do
+instance PackageManagement c => HahetModule Nginx c where
+    fromModule nserver = do
         let dir      = nginxFilesRoot nserver
             basefile = dir </> "nginx.conf"
 

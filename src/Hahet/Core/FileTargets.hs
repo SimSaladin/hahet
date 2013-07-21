@@ -77,26 +77,31 @@ data FileNode where
     DirectorySource :: DirectorySource s => FilePath -> FileSettings -> s -> FileNode
         deriving (Typeable)
 
-instance Target FileNode where
-    targetDesc (File path _ _)            = toTextIgnore path
-    targetDesc (Directory path _)         = toTextIgnore path
-    targetDesc (DirectorySource path _ _) = toTextIgnore path
+instance Target c FileNode where
+    targetDesc (File path _ _)            = return $ toTextIgnore path
+    targetDesc (Directory path _)         = return $ toTextIgnore path
+    targetDesc (DirectorySource path _ _) = return $ toTextIgnore path
 
-    targetApply (File path settings source) = shellyNoDir $ do
+    targetApply (File path settings _source) = shellyNoDir $ do
         exists  <- test_e path
         unless exists $ cmd "touch" path
-        handlePerms path (fPerms settings)
-        return ResSuccess -- XXX: not really
+        res <- handlePerms path (fPerms settings)
+        return res -- ResSuccess -- XXX: not really
 
     targetApply (Directory path settings) = shellyNoDir $ do
-        handlePerms path (fPerms settings)
-        return ResSuccess -- XXX: Not really
+        res <- handlePerms path (fPerms settings)
+        return res -- ResSuccess -- XXX: Not really
+
     targetApply (DirectorySource _ _ _ ) = undefined
 
-    targetConflicts (File p1 _ _)     (File p2 _ _)   = if p1 == p2 then Just "!" else Nothing
-    targetConflicts (File p1 _ _)    (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
-    targetConflicts (Directory p1 _) (File p2 _ _)    = if p1 == p2 then Just "!" else Nothing
-    targetConflicts (Directory p1 _) (Directory p2 _) = if p1 == p2 then Just "!" else Nothing
+    targetConflicts a b
+        | filenodePath a == filenodePath b = Just "Conflicts"
+        | otherwise = Nothing
+
+filenodePath :: FileNode -> FilePath
+filenodePath (File            p _ _) = p
+filenodePath (Directory       p _  ) = p
+filenodePath (DirectorySource p _ _) = p
 
 getPerms :: FilePath -> Sh Permissions
 getPerms fp = liftM (read . T.unpack) . silently $ cmd "stat" "-c%a" fp
@@ -110,5 +115,5 @@ handlePerms fp new      = do
         then return ResNoop
         else do
             mlog ("Perm change: " <> show cur <> " => " <> show new)
-            cmd "chmod" (show new) fp
+            _ <- cmd "chmod" (show new) fp
             return ResSuccess
