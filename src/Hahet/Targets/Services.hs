@@ -1,4 +1,4 @@
-module Hahet.Core.ServiceTargets where
+module Hahet.Targets.Services where
 
 import Prelude
 import Data.Text (Text)
@@ -12,7 +12,7 @@ data Service = Service Text Started
     deriving (Typeable, Show)
 
 instance Target c Service where
-    targetDesc  (Service service _) = return service
+    targetDesc  _ (Service service _) = service
 
     targetApply (Service _ Nothing)      = return ResNoop
     targetApply (Service _ (Just False)) = return $ ResFailed "Not yet implemented"

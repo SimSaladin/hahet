@@ -9,6 +9,7 @@ module Main where
 import Hahet
 import Hahet.Modules.ModNginx
 import Hahet.Modules.DateTimeManager
+import Hahet.Modules.SSH
 
 -- todos
 -- - inotify limits
@@ -33,9 +34,10 @@ instance PackageManagement TestConf where
 
 -- * 
 conf :: Conf ()
-conf =
+conf = do
     -- use (def :: Nginx)
     use $ DTM "Europe/Helsinki" True
+    use $ (def :: SSH)
 
 main :: IO ()
 main = do

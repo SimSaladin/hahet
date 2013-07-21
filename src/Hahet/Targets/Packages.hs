@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 -- | Defines the package manager interface
-module Hahet.Core.PackageTargets where
+module Hahet.Targets.Packages where
 
 import Prelude
 import Control.Monad
@@ -52,7 +52,7 @@ pacmanCmd :: Text -> Pkg -> Sh Text
 pacmanCmd = cmd "pacman" "--noconfirm"
 
 pacmanPkgQuery :: Pkg -> Sh Text
-pacmanPkgQuery pkg = cmd "pacman" "-Qs" $ "^" ++ show pkg ++ "$"
+pacmanPkgQuery pkg = silently $ cmd "pacman" "-Qs" $ "^" ++ show pkg ++ "$"
 
 instance PackageManager Pacman where
     applyConfiguration _ = undefined
@@ -81,7 +81,7 @@ exitCode f = f >> lastExitCode
 -- * Internal implementations
 
 instance PackageManagement c => Target c Pkg where
-    targetDesc (Pkg txt) = return txt
+    targetDesc _ (Pkg txt) = txt
     targetApply pkg = do
         onPkgMgr $ installPackage pkg
 

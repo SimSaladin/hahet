@@ -2,7 +2,10 @@
 module Hahet.Core.Execution where
 
 import Prelude hiding (FilePath)
+import Data.Monoid ((<>))
 import Data.Text (Text)
+import Data.Typeable
+import qualified Data.Text as T
 import Shelly
 import qualified Data.Map as M
 
@@ -33,7 +36,10 @@ pushTarget t app = app
      where m = getModule app
 
 runTarget :: Application c -> AppTarget c -> IO ApplyResult
-runTarget app (MkTarget t) = shellyNoDir $ apply app $ targetApply t
+runTarget app (MkTarget t) = do
+    putStrLn $ show (typeOf t) ++ ": "
+            ++ T.unpack (targetDesc (appConf app) t)
+    shellyNoDir $ apply app $ targetApply t
 
 -- | Applying a configuration on system.
 runHahet :: Application c -> IO [ApplyResult]

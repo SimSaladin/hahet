@@ -10,10 +10,11 @@ import Shelly                       as Hahet.Core hiding (path) -- XXX deprecate
 import Control.Monad                as Hahet.Core
 import Hahet.Core.Internals         as Hahet.Core
 import Hahet.Core.Execution         as Hahet.Core
-import Hahet.Core.FileTargets       as Hahet.Core
-import Hahet.Core.PackageTargets    as Hahet.Core
-import Hahet.Core.ServiceTargets    as Hahet.Core
+import Hahet.Targets.FileNodes      as Hahet.Core
+import Hahet.Targets.Packages       as Hahet.Core
+import Hahet.Targets.Services       as Hahet.Core
 
+import Control.Monad.Reader
 import Control.Monad.State
 
 -- ** Configuration functions
@@ -32,11 +33,11 @@ use mconf = do
 -- | Require a target to be applied.
 manage :: (Target c t) => t -> C c ()
 manage t = do
-    desc <- targetDesc t
+    c <- ask
     mlog   $ "Added target "
         ++ show (typeOf t)
         ++ ": "
-        ++ T.unpack desc
+        ++ T.unpack (targetDesc c t)
     modify $ pushTarget t
 
 revoke :: Target c t => t -> C c ()

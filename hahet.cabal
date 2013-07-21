@@ -21,11 +21,12 @@ library
       Hahet.Core
       Hahet.Core.Internals
       Hahet.Core.Execution
-      Hahet.Core.PackageTargets
-      Hahet.Core.FileTargets
-      Hahet.Core.ServiceTargets
+      Hahet.Targets.Packages
+      Hahet.Targets.FileNodes
+      Hahet.Targets.Services
       Hahet.Modules.DateTimeManager
       Hahet.Modules.ModNginx
+      Hahet.Modules.SSH
 
   -- other-modules:       
   build-depends: base         ==4.6.*

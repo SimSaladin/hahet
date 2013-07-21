@@ -1,16 +1,17 @@
 -- | Handling files
-module Hahet.Core.FileTargets where
+module Hahet.Targets.FileNodes where
 
 import Prelude hiding (FilePath)
-import Data.String
-import Data.Text (Text)
+import Control.Monad
+import Control.Monad.Trans (lift)
 import Data.Default
-import Data.Monoid ((<>))
+import Data.Monoid         ((<>))
+import Data.String
+import Data.Text           (Text)
 import qualified Data.Text as T
 import Data.Typeable
-import Control.Monad
-import Shelly           hiding (path)
-import Text.Read        as R
+import Shelly hiding (path)
+import Text.Read           as R hiding (lift)
 
 import Hahet.Core.Internals
 default (Text)
@@ -77,31 +78,31 @@ data FileNode where
     DirectorySource :: DirectorySource s => FilePath -> FileSettings -> s -> FileNode
         deriving (Typeable)
 
-instance Target c FileNode where
-    targetDesc (File path _ _)            = return $ toTextIgnore path
-    targetDesc (Directory path _)         = return $ toTextIgnore path
-    targetDesc (DirectorySource path _ _) = return $ toTextIgnore path
-
-    targetApply (File path settings _source) = shellyNoDir $ do
-        exists  <- test_e path
-        unless exists $ cmd "touch" path
-        res <- handlePerms path (fPerms settings)
-        return res -- ResSuccess -- XXX: not really
-
-    targetApply (Directory path settings) = shellyNoDir $ do
-        res <- handlePerms path (fPerms settings)
-        return res -- ResSuccess -- XXX: Not really
-
-    targetApply (DirectorySource _ _ _ ) = undefined
-
-    targetConflicts a b
-        | filenodePath a == filenodePath b = Just "Conflicts"
-        | otherwise = Nothing
-
 filenodePath :: FileNode -> FilePath
 filenodePath (File            p _ _) = p
 filenodePath (Directory       p _  ) = p
 filenodePath (DirectorySource p _ _) = p
+
+filenodeSettings :: FileNode -> FileSettings
+filenodeSettings (File            _ s _) = s
+filenodeSettings (Directory       _ s  ) = s
+filenodeSettings (DirectorySource _ s _) = s
+
+instance Target c FileNode where
+    targetDesc _ = toTextIgnore . filenodePath
+
+    targetApply fn = lift $ do
+        let path     = filenodePath fn
+            settings = filenodeSettings fn
+        exists <- test_e path
+        mlog $ if exists
+            then "Path exists"
+            else "Path does not exist"
+        handlePerms path (fPerms settings)
+
+    targetConflicts a b
+        | filenodePath a == filenodePath b = Just "Conflicts"
+        | otherwise = Nothing
 
 getPerms :: FilePath -> Sh Permissions
 getPerms fp = liftM (read . T.unpack) . silently $ cmd "stat" "-c%a" fp
