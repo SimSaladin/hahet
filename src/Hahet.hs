@@ -28,7 +28,7 @@ default("Text")
 main :: IO ()
 main = do
     app     <- 'configure' ...
-    results <- 'runHahet' app
+    results <- 'apply' app
     return ()
 @
 
@@ -36,13 +36,20 @@ main = do
 module Hahet 
     (
     -- * Configuration
-    C, ($*), use
+    C, ($*), use, convertFilePath
 
-    -- ** Convenience
-    , mlog, convertFilePath
+    -- ** Logging
+    , logDebug, logInfo, logWarn, logError
 
     -- ** Applying
-    , configure, runHahet
+    , configure, apply
+
+    -- *** Results
+    , prettyPrintResults
+
+
+    -- *** Lower-level
+    , runH, apply'
 
     -- * Targets
     , module Hahet.Targets.Packages
@@ -50,41 +57,39 @@ module Hahet
     , module Hahet.Targets.Services
     , manage, revoke
     , ApplyResult(..)
-    , AfterSh(..)
+    , AfterSh(..), AfterH(..), sh
     ) where
 
-import           Hahet.Imports
-import           Control.Monad.Reader
-import           Control.Monad.State
+import           Control.Monad.Logger
 import qualified Data.Text  as T
+
 import           Hahet.Internal
 import           Hahet.Targets.Packages
 import           Hahet.Targets.FileNodes
 import           Hahet.Targets.Services
-import           Hahet.Apply
+import           Hahet.Imports
 
 -- * Configuring
 
 -- | Use a module. Loads up the module, checks dependency conflicts.
 -- Conflicts are logged to stdout.
 use :: HahetModule mconf c => mconf -> C c ()
-use mconf = do
-    mlog $ "Entered module " ++ modId
-    modify (pushAppModule modId)
-    fromModule mconf -- run the module configuration initialization function
-                 -- XXX: check for system-wide daemon conficts
-    where
-        modId = show (typeOf mconf)
+use mconf = let mident = show $ typeOf mconf
+                in do
+    $(logDebug) ("Entered module " <> T.pack mident)
+    pushModule mident
+    fromModule mconf
+    popModule
 
 -- | Require a target to be applied.
-manage :: (Target c target) => target -> C c ()
-manage t = do
-    c <- ask
-    mlog   $ "Added target "
-        ++ show (typeOf t)
-        ++ ": "
-        ++ T.unpack (targetDesc c t)
-    modify $ pushTarget t
+manage :: (Typeable conf, Target conf target) => target -> C conf ()
+manage target = do
+    conf <- getConf
+    let tident = show $ typeOf target
+        desc   = targetDesc conf target
+
+    $(logDebug) ("Reached target " <> T.pack tident <> ": " <> desc)
+    pushTarget (tident ++ ": " ++ T.unpack desc) (MkTarget target)
 
 revoke :: Target c target => target -> C c ()
 revoke _ = error "Target revoking not implemented"

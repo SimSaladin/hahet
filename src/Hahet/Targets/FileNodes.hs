@@ -34,12 +34,11 @@ module Hahet.Targets.FileNodes
 
 import           Hahet.Targets
 import           Hahet.Imports hiding (writeFile, path)
-
 import           Data.List            (intercalate)
 import           Data.String
 import qualified Data.Text     as T
 import           Data.Text.IO
-import           Text.Read     as R hiding (lift)
+import           Text.Read     as R
 
 default (Text)
 
@@ -55,9 +54,9 @@ data FileNode a where
     DirectorySourced :: DirectorySource s => FileSettings -> s -> FileNode SourcedDirectory
     deriving (Typeable)
 
-instance Typeable a => Target c (FileNode a) where
+instance (Typeable c, Typeable a) => Target c (FileNode a) where
     targetDesc  _ = toTextIgnore . filenodePath
-    targetApply   = lift . applyFileNode
+    targetApply   = sh . applyFileNode
     targetConflicts a b | filenodePath a == filenodePath b = Just "Conflicts"
                         | otherwise = Nothing
 

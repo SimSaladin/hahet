@@ -14,7 +14,6 @@ import Manifests
 
 main :: IO ()
 main = do
-    app <- configure TestConf conf
-    putStrLn ""
-    results <- runHahet app
-    return ()
+    app     <- configure TestConf conf
+    results <- apply app
+    putStrLn $ prettyPrintResults results

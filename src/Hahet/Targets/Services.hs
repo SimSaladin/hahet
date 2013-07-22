@@ -8,7 +8,7 @@ type Started = Maybe Bool
 data Service = Service Text Started
     deriving (Typeable, Show)
 
-instance Target c Service where
+instance Typeable c => Target c Service where
     targetDesc  _ (Service service _) = service
 
     targetApply (Service _ Nothing)      = return ResNoop

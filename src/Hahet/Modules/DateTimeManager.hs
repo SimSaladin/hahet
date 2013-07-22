@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Hahet.Modules.DateTimeManager where
 
 import Hahet.Modules
@@ -15,24 +15,25 @@ data DTM = DTM
     , dtmUseNtp   :: Bool
     } deriving (Typeable)
 
-instance PackageManagement c => HahetModule DTM c where
+instance (Typeable c, PackageManagement c) => HahetModule DTM c where
     fromModule DTM{dtmTimezone = timezone, dtmUseNtp = useNTP} = do
         when useNTP $ do
             manage $ Pkg     "ntpd"
             manage $ Service "ntpd.service" (Just True)
             manage $ File "/etc/ntpd.conf" >>> "servers pool.ntp.org"
 
-        manage $ AfterSh $ do
-            current <- curTimeZone
-            mlog $ "Current timezone is "
-                <> show current <> if current == timezone 
-                    then ", which is the wanted timezone."
-                    else ", which differs from the wanted timezone " <> show timezone
-
-            unless (current == timezone) $
-                cmd "timedatectl" "set-timezone" timezone
-
-            return $ ResFailed "Not yet implemented"
+        let script :: AfterH c ApplyResult
+            script = AfterH $ do
+                current <- sh curTimeZone
+                if current == timezone
+                    then do
+                        $(logDebug) $ [qc|Current timezone is { current }, which is the wanted timezone|]
+                        return ResNoop
+                    else do
+                        $(logInfo) $ [qc|Change timezone from {current} to {timezone}|]
+                        _ <- sh $ cmd "timedatectl" "set-timezone" timezone
+                        return $ ResFailed "Not yet implemented"
+        manage script
 
 
 -- | Get the current timezone from the system.

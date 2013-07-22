@@ -88,5 +88,5 @@ onPkgMgr :: PackageManagement c
          -> H c a
 onPkgMgr f = do
     MkPkgManager mgr <- liftM pkgManager getConfiguration
-    lift $ f mgr
+    sh $ f mgr
 

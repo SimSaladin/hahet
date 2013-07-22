@@ -3,7 +3,7 @@
 module Hahet.Targets 
     ( Target(..)
     , Conflict
-    , H
+    , H, sh
     , getConfiguration
 
     -- * Results
