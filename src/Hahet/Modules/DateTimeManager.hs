@@ -20,7 +20,7 @@ instance (Typeable c, PackageManagement c) => HahetModule DTM c where
         when useNTP $ do
             manage $ Pkg     "ntpd"
             manage $ Service "ntpd.service" (Just True)
-            manage $ File "/etc/ntpd.conf" >>> "servers pool.ntp.org"
+            manage $ File "/etc/ntpd.conf" /- fileSource "servers pool.ntp.org"
 
         let script :: AfterH c ApplyResult
             script = AfterH $ do

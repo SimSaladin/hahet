@@ -99,34 +99,35 @@ defaultLogger :: (MonadIO m, ToLogStr msg) =>
     m (Application conf) -> Loc -> LogSource -> LogLevel -> msg -> m ()
 defaultLogger how_app loc logsource loglevel msg = do
     app <- how_app
+    let moduleHeading = intercalate "." (appModuleHiera app) ++ "::"
 
     let reset         = A.setSGRCode [A.Reset]
         color         = A.setSGRCode $ case loglevel of
             LevelInfo  -> [A.Reset]
-            LevelDebug -> [A.SetColor A.Foreground A.Vivid A.Black ]
+            LevelDebug -> [A.SetColor A.Foreground A.Vivid A.Black   ]
             LevelError -> [A.SetColor A.Foreground A.Vivid A.Red     ]
             LevelWarn  -> [A.SetColor A.Foreground A.Vivid A.Yellow  ]
             LevelOther "status" -> [ A.SetColor A.Foreground A.Dull  A.Cyan  ]
             LevelOther "action" -> [ A.SetColor A.Foreground A.Vivid A.Green ]
-            LevelOther{} -> [A.SetColor A.Foreground A.Dull A.Yellow   ]
+            LevelOther{} -> [A.SetColor A.Foreground A.Dull A.Yellow ]
         heading = case loglevel of
-            LevelDebug          -> [ LS [qc|{logsource} {loc_filename loc} {loc_start loc} |] ]
-            LevelError          -> [LS "error:  "]
-            LevelWarn           -> [LS "warn:   "]
-            LevelOther "status" -> [LS "status: "]
-            LevelOther "action" -> [LS "==> "]
+            LevelDebug          -> []
+            LevelError          -> [LS "Error "     ]
+            LevelWarn           -> [LS "Warning "   ]
+            LevelOther "status" -> [LS "Status "    ]
+            LevelOther "action" -> [LS "==> "       ]
             _                   -> []
         footing = case loglevel of
-            LevelDebug ->  []
+            LevelDebug -> [ LS $ A.setSGRCode [A.SetColor A.Foreground A.Vivid A.Black ]
+                          , LS [qc|{logsource} {loc_filename loc} {loc_start loc} |]
+                          , LS reset
+                          ]
             _ -> []
     liftIO $ loggerPutStr (appLogger app) $
+        [ LS moduleHeading ] ++
         [ LS color ] ++ heading ++
         [ LS reset, toLogStr msg ] ++ footing ++
         [ LS "\n" ]
-
--- | Logging system - for now :)
-mlog :: MonadIO m => String -> m ()
-mlog = liftIO . putStrLn
 
 -- * Configuration
 
@@ -147,7 +148,7 @@ getConf = ask
 
 pushModule :: ModuleIdent -> C conf ()
 pushModule mident = do
-    $debug [qc| Add module "{ mident }"|]
+    $debug [qc|Module { mident }|]
     modify $ \app -> app{ appModuleHiera = appModuleHiera app ++ [mident] }
 
 popModule :: C conf ()
@@ -155,7 +156,7 @@ popModule = modify $ \app -> app{ appModuleHiera = init $ appModuleHiera app }
 
 pushTarget :: String -> AppTarget conf -> C conf ()
 pushTarget tident target = do
-    $debug [qc| Add target "{ tident }"|]
+    $debug [qc|{ tident }|]
 
     modify $ \app -> app{
         appTargets = liftA2 pushTarget' appModuleHiera appTargets app
@@ -164,9 +165,9 @@ pushTarget tident target = do
         --pushTarget' :: [ModuleIdent] -> Forest (String, Maybe (AppTarget conf)) -> Forest (String, Maybe (AppTarget conf))
         pushTarget'     [] forest = (Node $ Right (tident, target)) [] : forest
         pushTarget' (x:xs) forest = case partition (isModule x) forest of
-            ([n], ns) -> n{ subForest = pushTarget' xs (subForest n) } : ns
-            ([ ], ns) -> Node (Left x) []                              : ns
-            _         -> error "Tried to use the same module twice.  This is not implemented, and may never be."
+            ([n], ns) -> ns ++ [ n{ subForest = pushTarget' xs (subForest n) } ]
+            ([ ], ns) -> ns ++ [ Node (Left x) []                              ]
+            _         -> error "Tried to use the same module twice. This is not implemented, at least not for now."
 
         isModule a (Node (Left b) _) = a == b --fst (rootLabel n)
         isModule _ _                 = False

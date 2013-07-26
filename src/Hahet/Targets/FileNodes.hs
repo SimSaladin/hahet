@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase, EmptyDataDecls #-}
 -- |
--- Methods for managing files and directories.
+-- FileNodes target files and directories: their owner, group, permissions and
+-- content.
 --
 -- Ensure that directory /etc exists and is owned by root with perms 755:
 --
@@ -8,17 +9,17 @@
 -- >     /- setOwner "root"
 -- >     /- setPerms "755"
 -- 
--- Ensure that /etc/hostname exists, is owned by root, has 755 permissions and
+-- Ensure that a file /etc/hostname exists, is owned by root, has 755 permissions and
 -- the content "myhost".
 --
 -- > manage $ File "/etc/hostname"
 -- >     /- setOwner "root"
 -- >     /- setPerms "755"
--- >     >>> "myhost"
+-- >     /- fileSource "myhost"
 module Hahet.Targets.FileNodes 
---   Examples:
-    ( FileNode(..)
-    , toFileNode
+    ( FileNode(..), file, directory
+    -- , FileSettings
+    --, PlainFile, SourcedFile, PlainDirectory, SourcedDirectory
 
     -- * Properties
     , (/-)
@@ -26,20 +27,21 @@ module Hahet.Targets.FileNodes
     , Permissions(..)
     , setOwner, setGroup, setPerms
 
-    -- * Sourcing
-    , (>>>), (&>>)
+    -- * Sources
     , FileSource(..)
     , DirectorySource(..)
+    , fileSource
+    , directorySource
     ) where
 
 import           Hahet.Targets
 import           Hahet.Imports hiding (writeFile, path)
+
 import           Data.List            (intercalate)
 import           Data.String
 import qualified Data.Text     as T
 import           Data.Text.IO
 import           Text.Read     as R
-
 default (Text)
 
 data PlainFile deriving Typeable
@@ -56,12 +58,19 @@ data FileNode a where
 
 instance (Typeable c, Typeable a) => Target c (FileNode a) where
     targetDesc  _ = toTextIgnore . filenodePath
-    targetApply   = sh . applyFileNode
+    targetApply   = applyFileNode
     targetConflicts a b | filenodePath a == filenodePath b = Just "Conflicts"
                         | otherwise = Nothing
 
-toFileNode :: FilePath -> FileSettings
-toFileNode txt = FileSettings txt Nothing Nothing PermNoop
+-- | (Internal)
+mkFileSettings :: FilePath -> FileSettings
+mkFileSettings txt = FileSettings txt Nothing Nothing PermNoop
+
+file :: FilePath -> FileNode PlainFile
+file = File . mkFileSettings
+
+directory :: FilePath -> FileNode PlainDirectory
+directory = Directory . mkFileSettings
 
 -- | File properties.
 data FileSettings = FileSettings
@@ -72,11 +81,10 @@ data FileSettings = FileSettings
     }
 
 instance IsString FileSettings where
-    fromString = toFileNode . fromText . T.pack
+    fromString = mkFileSettings . fromText . T.pack
 
--- | Set properties in combinatorical style
---
-(/-) :: a -> (a -> b) -> b
+-- | Specialized @flip ($)@ to set properties in infix.
+(/-) :: FileNode a -> (FileNode a -> FileNode b) -> FileNode b
 (/-) = flip ($)
 
 -- * Properties
@@ -139,76 +147,76 @@ getPerms :: FilePath -> Sh Permissions
 getPerms fp = liftM (read . T.unpack) . silently $ cmd "stat" "-c%a" fp
 
 -- | Use "stat" to check and/or change the permissions.
-handlePerms :: FilePath -> Permissions -> Sh ApplyResult
+handlePerms :: FilePath -> Permissions -> H c ApplyResult
 handlePerms  _ PermNoop = return ResNoop
-handlePerms fp new = do
-    cur <- getPerms fp
+handlePerms fp new      = do
+    cur <- sh $ getPerms fp
     if cur == new
         then return ResNoop
         else do
-            mlog ("Perm change: " <> show cur <> " => " <> show new)
-            _ <- cmd "chmod" (show new) fp
+            $action [qc|Perm change  { cur } => { new }|]
+            _ <- sh $ cmd "chmod" (show new) fp
             return ResSuccess
 
 -- * FileSources
 
--- | Set source of a file.
-(>>>) :: FileSource s => FileNode PlainFile -> s -> FileNode SourcedFile
-(File ps) >>> s = FileSourced ps s
+-- | Set source for the directory.
+directorySource :: DirectorySource source => source -> FileNode PlainDirectory -> FileNode SourcedDirectory
+directorySource s (Directory ps) = DirectorySourced ps s
 
--- | Set source of a directory.
-(&>>) :: DirectorySource source => FileNode PlainDirectory -> source -> FileNode SourcedDirectory
-(Directory ps) &>> s = DirectorySourced ps s
+-- | Set source for the file.
+fileSource :: FileSource source => source -> FileNode PlainFile -> FileNode SourcedFile
+fileSource s (File ps) = FileSourced ps s
 
 -- | Some source which provides the content of a file.
 class FileSource source where
     -- TODO: This should be extended to conduits or something to allow easy
     -- efficient big files.
-    fileSource :: source -> IO Text
+    getFileSource :: source -> IO Text
 
-instance FileSource Text     where fileSource = return
-instance FileSource String   where fileSource = return . T.pack
-instance FileSource [Text]   where fileSource = return . T.intercalate "\n"
-instance FileSource [String] where fileSource = return . T.pack . intercalate "\n"
+instance FileSource Text     where getFileSource = return
+instance FileSource String   where getFileSource = return . T.pack
+instance FileSource [Text]   where getFileSource = return . T.intercalate "\n"
+instance FileSource [String] where getFileSource = return . T.pack . intercalate "\n"
 
 -- | For implementing different means of populating a directory. This could be
 -- an archive, git repo or what ever. Note that the source function must return
 -- (), so it should do the population of the directory.
 class DirectorySource source where
-    directorySource :: source -> FilePath -> IO ApplyResult
+    getDirectorySource :: source -> FilePath -> IO ApplyResult
 
 instance FileSource a => DirectorySource [(FilePath, a)] where
-    directorySource xs root = liftM ResMany $ mapM addFile xs
+    getDirectorySource xs root = liftM ResMany $ mapM addFile xs
         where
       addFile (filename, source) = do
           let new = root </> filename
-          content <- fileSource source
+          content <- getFileSource source
           _ <- shellyNoDir $ cmd "echo" content " > " new
           return $ ResFailed "Not yet implemented!"
 
-applyFileNode :: FileNode a -> Sh ApplyResult
+applyFileNode :: FileNode a -> H c ApplyResult
 applyFileNode fn = do
     let settings = filenodeSettings fn
         path     = fPath settings
     fileRes <- case fn of
-        File _ -> liftM2 (,) (test_e path) (test_f path) >>= \case
+        File _ -> sh (liftM2 (,) (test_e path) (test_f path)) >>= \case
             (_,    True)  -> return ResNoop
             (True, False) -> return $ ResFailed "Is a directory"
-            (False,    _) -> cmd "touch" path >> return ResSuccess
+            (False,    _) -> sh $ cmd "touch" path >> return ResSuccess
 
-        FileSourced _ source -> liftM2 (,) (test_e path) (test_f path) >>= \case
+        FileSourced _ source -> sh (liftM2 (,) (test_e path) (test_f path)) >>= \case
             (_   , True ) -> return ResNoop
             (True, False) -> return (ResFailed "Is a directory")
             (False,    _) -> do
-                liftIO $ writeFile (convertFilePath path) =<< fileSource source
+                liftIO $ writeFile (convertFilePath path) =<< getFileSource source
                 return ResSuccess
 
-        Directory _ -> liftM2 (,) (test_e path) (test_d path) >>= \case -- (Exists, Is directory)
+        Directory _ -> sh (liftM2 (,) (test_e path) (test_d path)) >>= \case -- (Exists, Is directory)
             (_   , True ) -> return ResNoop
             (True, False) -> return (ResFailed "Is a file and not a directory!")
-            (False,    _) -> cmd "mkdir" "-p" path >> return ResSuccess
+            (False,    _) -> sh $ cmd "mkdir" "-p" path >> return ResSuccess
 
-        DirectorySourced _ source -> liftIO $ directorySource source path
+        DirectorySourced _ source -> liftIO $ getDirectorySource source path
 
     permRes <- handlePerms path (fPerms settings)
     return $ ResMany [fileRes, permRes]

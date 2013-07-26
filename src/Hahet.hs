@@ -76,7 +76,6 @@ import           Hahet.Imports
 use :: HahetModule mconf c => mconf -> C c ()
 use mconf = let mident = show $ typeOf mconf
                 in do
-    $(logDebug) ("Entered module " <> T.pack mident)
     pushModule mident
     fromModule mconf
     popModule
@@ -87,8 +86,6 @@ manage target = do
     conf <- getConf
     let tident = show $ typeOf target
         desc   = targetDesc conf target
-
-    $(logDebug) ("Reached target " <> T.pack tident <> ": " <> desc)
     pushTarget (tident ++ ": " ++ T.unpack desc) (MkTarget target)
 
 revoke :: Target c target => target -> C c ()

@@ -33,6 +33,6 @@ instance PackageManagement c => HahetModule SSH c where
         manage $ File "/etc/ssh/ssh_config"
                     /- setOwner "root"
                     /- setPerms "644"
-                    >>> [qc|
+                    /- fileSource [qc|
 Mui.
 |]

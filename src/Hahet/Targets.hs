@@ -6,11 +6,14 @@ module Hahet.Targets
     , H, sh
     , getConfiguration
 
+    , module Hahet.Logging
+
     -- * Results
     , ApplyResult(..)
 
     -- * Misc
-    , mlog, convertFilePath
+    , convertFilePath
     ) where
 
 import Hahet.Internal
+import Hahet.Logging
