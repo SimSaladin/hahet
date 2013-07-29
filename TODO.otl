@@ -1,0 +1,20 @@
+	Hahet TODO list
+	----------------------------------------
+
+	[_] Commandline
+		[_] Read arguments
+		[_] Construct configuration object
+	[_] Flags
+		[_] Flag insert/query in C, but NOT in H.
+		[_] Verbosity levels.
+	[_] Root/nonroot
+	[_] Modules
+		[_] Mountpoints (fstab)
+			; NOTE: no same disk twice by UUID
+		[_] Package management
+		[_] Services
+			[_] systemd
+		[_] Cron
+			[_] Daemon configuration
+			[_] Job targets
+		[_] Chrony
