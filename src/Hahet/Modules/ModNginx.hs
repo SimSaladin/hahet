@@ -3,7 +3,7 @@
 -- | Nginx configuration module for Hahet.
 module Hahet.Modules.ModNginx where
 
-import Hahet.Modules
+import Hahet
 import Hahet.Imports
 
 data Nginx = Nginx

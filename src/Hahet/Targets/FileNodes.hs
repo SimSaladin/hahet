@@ -6,32 +6,38 @@
 -- Ensure that directory /etc exists and is owned by root with perms 755:
 --
 -- > manage $ Directory "/etc"
--- >     /- setOwner "root"
--- >     /- setPerms "755"
+-- >     /- owner "root"
+-- >     /- perms "755"
 -- 
--- Ensure that a file /etc/hostname exists, is owned by root, has 755 permissions and
+-- Ensure that a file \/etc\/hostname exists, is owned by root, has 755 permissions and
 -- the content "myhost".
 --
 -- > manage $ File "/etc/hostname"
--- >     /- setOwner "root"
--- >     /- setPerms "755"
+-- >     /- owner "root"
+-- >     /- perms "755"
 -- >     /- fileSource "myhost"
 module Hahet.Targets.FileNodes 
-    ( FileNode(..), file, directory
-    -- , FileSettings
-    --, PlainFile, SourcedFile, PlainDirectory, SourcedDirectory
+    ( Owner, Group
+    , FileNode
+    , file
+    , directory
 
-    -- * Properties
+    -- * Set properties
     , (/-)
-    , Owner, Group
-    , Permissions(..)
-    , setOwner, setGroup, setPerms
-
-    -- * Sources
-    , FileSource(..)
-    , DirectorySource(..)
     , fileSource
     , directorySource
+    , owner, group
+    , perms, Permissions(..)
+
+    -- * Extending
+    -- ** Sources
+    , FileSource(..)
+    , DirectorySource(..)
+
+#ifdef TESTS
+    -- exported to tests to make arbitrary instance of FileNode easy.
+    , PlainFile, SourcedFile, PlainDirectory, SourcedDirectory
+#endif
     ) where
 
 import           Hahet.Targets
@@ -44,33 +50,68 @@ import           Data.Text.IO
 import           Text.Read     as R
 default (Text)
 
+-- | TODO move&rename this
+type Ha r = Typeable c => H c r
+
+-- * FileNode data type
+
+type Owner = Text
+type Group = Text
+
+data FileNode a where
+    File             :: FileSettings -> FileNode PlainFile
+    Directory        :: FileSettings -> FileNode PlainDirectory
+    FileSourced      :: FileSource      s => FileSettings -> s -> FileNode SourcedFile
+    DirectorySourced :: DirectorySource s => FileSettings -> s -> FileNode SourcedDirectory
+    deriving (Typeable)
+
 data PlainFile deriving Typeable
 data SourcedFile deriving Typeable
 data PlainDirectory deriving Typeable
 data SourcedDirectory deriving Typeable
 
-data FileNode a where
-    File             ::                      FileSettings -> FileNode PlainFile
-    Directory        ::                      FileSettings -> FileNode PlainDirectory
-    FileSourced      :: FileSource      s => FileSettings -> s -> FileNode SourcedFile
-    DirectorySourced :: DirectorySource s => FileSettings -> s -> FileNode SourcedDirectory
-    deriving (Typeable)
-
 instance (Typeable c, Typeable a) => Target c (FileNode a) where
     targetDesc  _ = toTextIgnore . filenodePath
     targetApply   = applyFileNode
-    targetConflicts a b | filenodePath a == filenodePath b = Just "Conflicts"
-                        | otherwise = Nothing
+    targetConflicts a b | filenodePath a == filenodePath b = Just "Conflicts with"
+                        | otherwise                        = Nothing
 
--- | (Internal)
-mkFileSettings :: FilePath -> FileSettings
-mkFileSettings txt = FileSettings txt Nothing Nothing PermNoop
+applyFileNode :: FileNode a -> Ha ApplyResult
+applyFileNode fn = do
+    let settings = filenodeSettings fn
+        path     = fPath settings
+    fileRes <- case fn of
+        File _ -> sh (liftM2 (,) (test_e path) (test_f path)) >>= \case
+            (_,    True)  -> return ResNoop
+            (True, False) -> return $ ResFailed "Is a directory"
+            (False,    _) -> sh $ cmd "touch" path >> return ResSuccess
+
+        FileSourced _ source -> sh (liftM2 (,) (test_e path) (test_f path)) >>= \case
+            (_   , True ) -> return ResNoop
+            (True, False) -> return $ ResFailed "Is a directory"
+            (False,    _) -> do
+                liftIO $ writeFile (convertFilePath path) =<< getFileSource source
+                return ResSuccess
+
+        Directory _ -> sh (liftM2 (,) (test_e path) (test_d path)) >>= \case -- (Exists, Is directory)
+            (_   , True ) -> return ResNoop
+            (True, False) -> return (ResFailed "Is a file and not a directory!")
+            (False,    _) -> sh $ cmd "mkdir" "-p" path >> return ResSuccess
+
+        DirectorySourced _ source -> liftIO $ getDirectorySource source path
+
+    permRes <- handlePerms path (fPerms settings)
+    return $ ResMany [fileRes, permRes]
 
 file :: FilePath -> FileNode PlainFile
 file = File . mkFileSettings
 
 directory :: FilePath -> FileNode PlainDirectory
 directory = Directory . mkFileSettings
+
+-- * Properties
+
+-- ** Internal
 
 -- | File properties.
 data FileSettings = FileSettings
@@ -83,11 +124,8 @@ data FileSettings = FileSettings
 instance IsString FileSettings where
     fromString = mkFileSettings . fromText . T.pack
 
--- | Specialized @flip ($)@ to set properties in infix.
-(/-) :: FileNode a -> (FileNode a -> FileNode b) -> FileNode b
-(/-) = flip ($)
-
--- * Properties
+mkFileSettings :: FilePath -> FileSettings
+mkFileSettings txt = FileSettings txt Nothing Nothing PermNoop
 
 filenodeSettings :: FileNode a -> FileSettings
 filenodeSettings (File             s  ) = s
@@ -101,22 +139,33 @@ filenodeSettingsAlter (Directory        s  ) f = Directory (f s)
 filenodeSettingsAlter (FileSourced      s b) f = FileSourced (f s) b
 filenodeSettingsAlter (DirectorySourced s b) f = DirectorySourced (f s) b
 
-setOwner :: Owner -> FileNode a -> FileNode a
-setGroup :: Group -> FileNode a -> FileNode a
-setPerms :: Permissions -> FileNode a -> FileNode a
-
-setOwner x fn = filenodeSettingsAlter fn (\s -> s{ fOwner = Just x })
-setGroup x fn = filenodeSettingsAlter fn (\s -> s{ fGroup = Just x }) 
-setPerms x fn = filenodeSettingsAlter fn (\s -> s{ fPerms = x })
-
 filenodePath :: FileNode a -> FilePath
 filenodePath (File           s)   = fPath s
 filenodePath (FileSourced    s _) = fPath s
 filenodePath (Directory      s)     = fPath s
 filenodePath (DirectorySourced s _) = fPath s
 
-type Owner = Text
-type Group = Text
+-- ** Setting
+
+-- | Specialized @flip ($)@ to set properties in infix.
+(/-) :: FileNode a -> (FileNode a -> FileNode b) -> FileNode b
+(/-) = flip ($)
+
+owner :: Owner -> FileNode a -> FileNode a
+group :: Group -> FileNode a -> FileNode a
+perms :: Permissions -> FileNode a -> FileNode a
+
+owner x fn = filenodeSettingsAlter fn (\s -> s{ fOwner = Just x })
+group x fn = filenodeSettingsAlter fn (\s -> s{ fGroup = Just x }) 
+perms x fn = filenodeSettingsAlter fn (\s -> s{ fPerms = x })
+
+-- | Set source for the file.
+fileSource :: FileSource source => source -> FileNode PlainFile -> FileNode SourcedFile
+fileSource s (File ps) = FileSourced ps s
+
+-- | Set source for the directory.
+directorySource :: DirectorySource source => source -> FileNode PlainDirectory -> FileNode SourcedDirectory
+directorySource s (Directory ps) = DirectorySourced ps s
 
 -- * Permissions
 
@@ -130,10 +179,10 @@ instance Show Permissions where
 
 instance Read Permissions where
     readPrec = parens $ do
-        owner <- liftM permCheck R.get
-        group <- liftM permCheck R.get
-        other <- liftM permCheck R.get
-        return $ PermOctal owner group other 
+        u <- liftM permCheck R.get
+        g <- liftM permCheck R.get
+        o <- liftM permCheck R.get
+        return $ PermOctal u g o 
         where
             permCheck x = let n = read [x]
                           in if n <= 7
@@ -147,7 +196,7 @@ getPerms :: FilePath -> Sh Permissions
 getPerms fp = liftM (read . T.unpack) . silently $ cmd "stat" "-c%a" fp
 
 -- | Use "stat" to check and/or change the permissions.
-handlePerms :: FilePath -> Permissions -> H c ApplyResult
+handlePerms :: FilePath -> Permissions -> Ha ApplyResult
 handlePerms  _ PermNoop = return ResNoop
 handlePerms fp new      = do
     cur <- sh $ getPerms fp
@@ -158,15 +207,7 @@ handlePerms fp new      = do
             _ <- sh $ cmd "chmod" (show new) fp
             return ResSuccess
 
--- * FileSources
-
--- | Set source for the directory.
-directorySource :: DirectorySource source => source -> FileNode PlainDirectory -> FileNode SourcedDirectory
-directorySource s (Directory ps) = DirectorySourced ps s
-
--- | Set source for the file.
-fileSource :: FileSource source => source -> FileNode PlainFile -> FileNode SourcedFile
-fileSource s (File ps) = FileSourced ps s
+-- * Sources
 
 -- | Some source which provides the content of a file.
 class FileSource source where
@@ -193,30 +234,3 @@ instance FileSource a => DirectorySource [(FilePath, a)] where
           content <- getFileSource source
           _ <- shellyNoDir $ cmd "echo" content " > " new
           return $ ResFailed "Not yet implemented!"
-
-applyFileNode :: FileNode a -> H c ApplyResult
-applyFileNode fn = do
-    let settings = filenodeSettings fn
-        path     = fPath settings
-    fileRes <- case fn of
-        File _ -> sh (liftM2 (,) (test_e path) (test_f path)) >>= \case
-            (_,    True)  -> return ResNoop
-            (True, False) -> return $ ResFailed "Is a directory"
-            (False,    _) -> sh $ cmd "touch" path >> return ResSuccess
-
-        FileSourced _ source -> sh (liftM2 (,) (test_e path) (test_f path)) >>= \case
-            (_   , True ) -> return ResNoop
-            (True, False) -> return (ResFailed "Is a directory")
-            (False,    _) -> do
-                liftIO $ writeFile (convertFilePath path) =<< getFileSource source
-                return ResSuccess
-
-        Directory _ -> sh (liftM2 (,) (test_e path) (test_d path)) >>= \case -- (Exists, Is directory)
-            (_   , True ) -> return ResNoop
-            (True, False) -> return (ResFailed "Is a file and not a directory!")
-            (False,    _) -> sh $ cmd "mkdir" "-p" path >> return ResSuccess
-
-        DirectorySourced _ source -> liftIO $ getDirectorySource source path
-
-    permRes <- handlePerms path (fPerms settings)
-    return $ ResMany [fileRes, permRes]

@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, FlexibleContexts #-}
 -- | All internal datatypes of Hahet.
 module Hahet.Internal
 --   (
@@ -44,6 +44,7 @@ module Hahet.Internal
 --   , AppTarget(..)
 --   -- ** Sh
 --   , AfterSh(..), AfterH(..)
+--   , TargetResult
 --   -- ** Deps
 --   , TargetGroup(..)
 --   , (==>)
@@ -82,12 +83,15 @@ tr a = D.traceShow a a
 -- | The C monad is used to build an Application.
 newtype C conf a = C { unC :: ReaderT conf (StateT (Application conf) IO) a }
     deriving (Monad, MonadIO, MonadReader conf, MonadState (Application conf))
-instance MonadLogger (C conf) where monadLoggerLog = defaultLogger State.get
+instance Typeable conf => MonadLogger (C conf) where
+    monadLoggerLog = defaultLogger State.get
 
 -- | Targets are applied in the H monad.
 newtype H conf a = H { unH :: ReaderT (Application conf) Sh a }
     deriving (Monad, MonadIO, MonadReader (Application conf))
-instance MonadLogger (H conf) where monadLoggerLog = defaultLogger ask
+
+instance Typeable conf => MonadLogger (H conf) where
+    monadLoggerLog = defaultLogger ask
 
 -- | Helper to convert from shelly FilePath to a String.
 convertFilePath :: FilePath -> String
@@ -95,44 +99,42 @@ convertFilePath = T.unpack . toTextIgnore
 
 -- * Logging
 
-defaultLogger :: (MonadIO m, ToLogStr msg) =>
-    m (Application conf) -> Loc -> LogSource -> LogLevel -> msg -> m ()
+defaultLogger :: (MonadIO m, ToLogStr msg, Typeable conf)
+              => m (Application conf) -> Loc -> LogSource -> LogLevel -> msg -> m ()
 defaultLogger how_app loc logsource loglevel msg = do
     app <- how_app
-    let moduleHeading = intercalate "." (appModuleHiera app) ++ "::"
-
-    let reset         = A.setSGRCode [A.Reset]
+    let currentModule = (show . typeOf $ appConf app) ++ "["
+                        ++ "." `intercalate` appModuleHiera app ++ "] "
+        reset         = A.setSGRCode [A.Reset]
         color         = A.setSGRCode $ case loglevel of
-            LevelInfo  -> [A.Reset]
-            LevelDebug -> [A.SetColor A.Foreground A.Vivid A.Black   ]
             LevelError -> [A.SetColor A.Foreground A.Vivid A.Red     ]
             LevelWarn  -> [A.SetColor A.Foreground A.Vivid A.Yellow  ]
-            LevelOther "status" -> [ A.SetColor A.Foreground A.Dull  A.Cyan  ]
+            LevelDebug -> [A.SetColor A.Foreground A.Dull  A.Cyan    ]
+            LevelInfo  -> [A.Reset]
+            LevelOther "status" -> [ A.SetColor A.Foreground A.Dull  A.Magenta  ]
             LevelOther "action" -> [ A.SetColor A.Foreground A.Vivid A.Green ]
             LevelOther{} -> [A.SetColor A.Foreground A.Dull A.Yellow ]
         heading = case loglevel of
-            LevelDebug          -> []
-            LevelError          -> [LS "Error "     ]
-            LevelWarn           -> [LS "Warning "   ]
-            LevelOther "status" -> [LS "Status "    ]
-            LevelOther "action" -> [LS "==> "       ]
+            LevelDebug          -> LS "(" : LS color : LS " Debug " : LS reset : [ LS ") " ]
+            LevelError          -> LS "(" : LS color : LS " Error " : LS reset : [ LS ") " ]
+            LevelWarn           -> LS "(" : LS color : LS "Warning" : LS reset : [ LS ") " ]
+            LevelOther "status" -> LS "(" : LS color : LS "Status " : LS reset : [ LS ") " ]
+            LevelOther "action" -> LS "(" : LS color : LS "==> "    : LS reset : [ LS ") " ]
             _                   -> []
         footing = case loglevel of
-            LevelDebug -> [ LS $ A.setSGRCode [A.SetColor A.Foreground A.Vivid A.Black ]
+            LevelDebug -> [ LS $ A.setSGRCode [A.SetColor A.Foreground A.Dull A.Cyan ]
                           , LS [qc|{logsource} {loc_filename loc} {loc_start loc} |]
-                          , LS reset
-                          ]
-            _ -> []
-    liftIO $ loggerPutStr (appLogger app) $
-        [ LS moduleHeading ] ++
-        [ LS color ] ++ heading ++
-        [ LS reset, toLogStr msg ] ++ footing ++
-        [ LS "\n" ]
+                          , LS reset ]
+            _          -> []
+    liftIO . loggerPutStr (appLogger app)
+        $ heading
+        ++ ( LS currentModule : LS color : toLogStr msg : footing )
+        ++ [ LS reset, LS "\n" ]
 
 -- * Configuration
 
 -- | Running a configuration monad
-configure :: conf -> C conf () -> IO (Application conf)
+configure :: Typeable conf => conf -> C conf () -> IO (Application conf)
 configure c cm = do
     app <- mkApplication c
     ((), res_app) <- runStateT (runReaderT (unC cm') c) app
@@ -146,28 +148,32 @@ configure c cm = do
 getConf :: C conf conf
 getConf = ask
 
-pushModule :: ModuleIdent -> C conf ()
+pushModule :: Typeable conf => ModuleIdent -> C conf ()
 pushModule mident = do
-    $debug [qc|Module { mident }|]
+    $debug [qc|Module {mident} |]
     modify $ \app -> app{ appModuleHiera = appModuleHiera app ++ [mident] }
 
 popModule :: C conf ()
 popModule = modify $ \app -> app{ appModuleHiera = init $ appModuleHiera app }
 
-pushTarget :: String -> AppTarget conf -> C conf ()
+pushTarget :: Typeable conf => String -> AppTarget conf -> C conf ()
 pushTarget tident target = do
-    $debug [qc|{ tident }|]
+    $debug [qc|Target: {tident}|]
 
     modify $ \app -> app{
         appTargets = liftA2 pushTarget' appModuleHiera appTargets app
     }
+    tgs <- gets appTargets
+    $debug [qc| { prettyPrintTargets tgs }|]
     where
-        --pushTarget' :: [ModuleIdent] -> Forest (String, Maybe (AppTarget conf)) -> Forest (String, Maybe (AppTarget conf))
+--        pushTarget' :: [ModuleIdent] -> Forest (Either ModuleIdent (String, AppTarget conf))
+--                                     -> Forest (Either ModuleIdent (String, AppTarget conf))
+        -- traverse the targets by module, push the target to right place.
         pushTarget'     [] forest = (Node $ Right (tident, target)) [] : forest
         pushTarget' (x:xs) forest = case partition (isModule x) forest of
+            ([ ], ns) -> ns ++ [ Node (Left x) (pushTarget' xs [])             ]
             ([n], ns) -> ns ++ [ n{ subForest = pushTarget' xs (subForest n) } ]
-            ([ ], ns) -> ns ++ [ Node (Left x) []                              ]
-            _         -> error "Tried to use the same module twice. This is not implemented, at least not for now."
+            _         -> error "Tried to use the same module twice. This is not implemented, for now at least."
 
         isModule a (Node (Left b) _) = a == b --fst (rootLabel n)
         isModule _ _                 = False
@@ -181,9 +187,14 @@ data Application conf = Application
     , appLogger        :: Logger
     , appModuleHiera   :: [ModuleIdent]    -- ^ Configuration time module hierarchy. Used for logging.
     , appTargets       :: Targets conf
+    , appRTConf        :: RTConf           -- ^ Run-time configuration
     }
 
 type Targets conf = Forest (Either ModuleIdent (String, AppTarget conf))
+
+data RTConf = RTConf
+    { rtLogLevel :: Bool -- ^ Debug or not
+    }
 
 prettyPrintTargets :: Targets conf -> String
 prettyPrintTargets = drawForest . map (fmap f)
@@ -195,11 +206,15 @@ mkApplication :: conf -> IO (Application conf)
 mkApplication conf = do
     let logHandle = IO.stdout -- XXX: duplicate to a file?
     logger <- mkLogger True logHandle
-    return $ Application conf logger [] []
+    return $ Application conf logger [] [] (RTConf True)
 
 -- | Run a shell action inside a H monad.
 sh :: Sh a -> H conf a
-sh = H . ReaderT . const
+sh act = do
+    RTConf deb <- liftM appRTConf ask
+    H . ReaderT $ const $ if deb
+                              then verbosely act
+                              else act
 
 getConfiguration :: H conf conf
 getConfiguration = asks appConf
@@ -224,17 +239,18 @@ runH app h = shelly $ runReaderT (unH h) app
 apply' :: Typeable conf => H conf (Results conf)
 apply' = do
     app <- ask
-    $logInfo [qc|Applying configuration { show . typeOf $ appConf app }|]
-    $logDebug [qc|Configuration: { prettyPrintTargets (appTargets app) }|]
-    mapM (Tr.mapM handleTarget) (appTargets app)
+    $status [qc|Applying configuration { show . typeOf $ appConf app }|]
+    $logDebug [qc|Configuration:
+{ prettyPrintTargets (appTargets app) }|]
+    results <- mapM (Tr.mapM handleTarget) (appTargets app)
+    $status [qc|Configuration applied.|]
+    return results
     where
-        handleTarget (Left  mident)               = do
-            $logInfo [qc|At module { mident }|]
-            return (mident, ResNoop)
-        handleTarget (Right (tident, MkTarget t)) = do
-            $logDebug [qc|Applying target {typeOf t}|]
-            r <- targetApply t
-            return (tident, r)
+        handleTarget (Left  mident)               = do $status [qc|Apply module { mident }|]
+                                                       return (mident, ResNoop)
+        handleTarget (Right (tident, MkTarget t)) = do $logDebug [qc|Applying target {typeOf t}|]
+                                                       r <- targetApply t
+                                                       return (tident, r)
 
 -- | Apply the configuration on the system.
 apply :: Typeable conf => Application conf -> IO (Results conf)
@@ -248,14 +264,13 @@ type ModuleIdent = String
 --  2. Make it an instance of the HahetModule class.
 --  3. Export the datatype and relevant constructors or your configuration
 --     interface.
-class Typeable mc => HahetModule mc c where
+class (Typeable mod, Typeable sys) => HahetModule mod sys where
     -- | How to actualize configuration targets from the module data.
-    fromModule   :: mc -> C c ()
-
+    fromModule :: mod -> C sys ()
 --    modifyModule :: mc -> (mc -> mc) -> C c mc
 
 ($*) :: HahetModule mc c => C c mc -> (mc -> mc) -> C c mc
-m $* f = return . f =<< m
+m $* f = liftM f m
 
 -- * Targets
 
@@ -297,6 +312,8 @@ instance Target c t => Target c [t] where
     targetDesc  _ (_:[]) = "one target"
     targetDesc  _ xs     = T.pack (show $ length xs) <> " targets"
     targetApply = liftM ResMany . targetApplyAll
+
+type TargetResult r = (Typeable conf, Target conf (AfterH conf r)) => C conf ()
 
 -- | For wrapping targets for an Application.
 data AppTarget c where

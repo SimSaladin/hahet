@@ -21,13 +21,14 @@ type Conf = C TestConf
 
 -- | Make our conf instance of the Hahet typeclass.
 instance PackageManagement TestConf where
-    pkgManager _ = pacman
+    pkgManager _ = pacman undefined
 
 -- | 
 conf :: Conf ()
 conf = do
     -- use (def :: Nginx)
-    use $ DTM "Europe/Helsinki" True
+    use $ DTM "Europe/Helsinki"
+    use $ Chrony
 
     use =<< ssh
         $* (\s -> s{ sshClient = SSHClientConf })

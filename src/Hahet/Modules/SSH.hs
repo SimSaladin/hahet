@@ -1,6 +1,6 @@
 module Hahet.Modules.SSH where
 
-import Hahet.Modules
+import Hahet
 import Hahet.Imports
 
 data SSHClientConf = SSHClientConf
@@ -26,13 +26,13 @@ instance PackageManagement c => HahetModule SSH c where
 
     fromModule mc = do
         manage $ sshPkgs mc
-        manage $ Directory "/etc/ssh"
-                    /- setOwner "root"
-                    /- setPerms "755"
+        manage $ directory "/etc/ssh"
+                    /- owner "root"
+                    /- perms "755"
 
-        manage $ File "/etc/ssh/ssh_config"
-                    /- setOwner "root"
-                    /- setPerms "644"
+        manage $ file "/etc/ssh/ssh_config"
+                    /- owner "root"
+                    /- perms "644"
                     /- fileSource [qc|
 Mui.
 |]

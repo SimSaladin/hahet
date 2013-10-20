@@ -47,7 +47,6 @@ module Hahet
     -- *** Results
     , prettyPrintResults
 
-
     -- *** Lower-level
     , runH, apply'
 
@@ -58,11 +57,14 @@ module Hahet
     , manage, revoke
     , ApplyResult(..)
     , AfterSh(..), AfterH(..), sh
+    , TargetResult
+
+    -- * Modules
+    , HahetModule(..)
     ) where
 
 import           Control.Monad.Logger
 import qualified Data.Text  as T
-
 import           Hahet.Internal
 import           Hahet.Targets.Packages
 import           Hahet.Targets.FileNodes
@@ -74,11 +76,12 @@ import           Hahet.Imports
 -- | Use a module. Loads up the module, checks dependency conflicts.
 -- Conflicts are logged to stdout.
 use :: HahetModule mconf c => mconf -> C c ()
-use mconf = let mident = show $ typeOf mconf
-                in do
+use mconf = do
     pushModule mident
     fromModule mconf
     popModule
+    where
+        mident = show $ typeOf mconf
 
 -- | Require a target to be applied.
 manage :: (Typeable conf, Target conf target) => target -> C conf ()
@@ -86,7 +89,9 @@ manage target = do
     conf <- getConf
     let tident = show $ typeOf target
         desc   = targetDesc conf target
-    pushTarget (tident ++ ": " ++ T.unpack desc) (MkTarget target)
+    pushTarget ("[ " ++ tident ++ "; " ++ T.unpack desc ++ " ]")
+               (MkTarget target)
 
+-- | Require to not be applied.
 revoke :: Target c target => target -> C c ()
 revoke _ = error "Target revoking not implemented"

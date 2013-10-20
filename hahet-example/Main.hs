@@ -16,4 +16,5 @@ main :: IO ()
 main = do
     app     <- configure TestConf conf
     results <- apply app
+    putStrLn "------- applied -------"
     putStrLn $ prettyPrintResults results

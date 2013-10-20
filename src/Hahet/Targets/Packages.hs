@@ -1,53 +1,71 @@
 {-# LANGUAGE LambdaCase #-}
--- | Defines the package manager interface
-module Hahet.Targets.Packages where
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- | Package management.
+--
+-- To use:
+--
+-- >   data MyConf = ... deriving (Typeable)
+-- >
+-- >   instance PackageManagement MyConf where
+-- >      pkgManager _ = pacman -- example
+-- > 
+-- >   myconf = manage ("openssh" :: Pkg)
+--
+module Hahet.Targets.Packages
+    ( Pkg(..)
+    , PackageManagement(..)
+    -- * Package managers
+    -- ** Pacman
+    , pacman, PacmanConf(..)
+    ) where
 
 import Hahet.Targets
 import Hahet.Imports
-import qualified Data.Text as T
 import Data.String
+import qualified Data.Text as T
+default(Text)
 
+-- | Configurations implement package management by implementing
+-- @pkgManager@. Some common package managers are provided.
+class (Typeable conf) => PackageManagement conf where
+    pkgManager :: conf -> PkgManager
 
--- * Interface
+-- | @Pkg@ reperesents a package. Provides a IsString instance, so packages
+-- may be defined as String literals.
+data Pkg = Pkg Text deriving (Typeable)
+instance IsString Pkg where fromString          = Pkg . T.pack
+instance ShellArg Pkg where toTextArg (Pkg txt) = txt
+instance Show Pkg     where show      (Pkg txt) = T.unpack txt
 
--- | Class which allows defining a package manager for a configuration.
-class (Typeable c) => PackageManagement c where
-    pkgManager :: c -> PkgManager
+instance PackageManagement c => Target c Pkg where
+    targetDesc _ (Pkg txt) = txt
+    targetApply pkg        = onPkgMgr $ installPackage pkg
 
--- | Package manager interface.
+-- * Managers
+
+-- | The package manager interface.
 class PackageManager pm where
     applyConfiguration  ::        pm -> Sh ApplyResult
     installPackage      :: Pkg -> pm -> Sh ApplyResult
     revokePackage       :: Pkg -> pm -> Sh ApplyResult
 
--- | Pkg reperesents a package. Provides a IsString instance, so you can create
--- a file from a String literal.
-data Pkg = Pkg Text
-    deriving (Typeable)
+-- | Package manager existential.
+data PkgManager where
+    MkPkgManager :: PackageManager pm => pm -> PkgManager
 
-instance ShellArg Pkg where
-    toTextArg (Pkg txt) = txt
-
-instance Show Pkg where
-    show (Pkg txt) = T.unpack txt
-
-instance IsString Pkg where
-    fromString = Pkg . T.pack
-
--- * Managers
+onPkgMgr :: PackageManagement c => (forall m. PackageManager m => m -> Sh a) -> H c a
+onPkgMgr f = do
+    MkPkgManager mgr <- liftM pkgManager getConfiguration
+    sh $ f mgr
 
 -- ** Pacman
 
-data Pacman = Pacman
+pacman :: PacmanConf -> PkgManager
+pacman pc = MkPkgManager (Pacman pc)
 
-pacman :: PkgManager
-pacman = MkPkgManager Pacman
-
-pacmanCmd :: Text -> Pkg -> Sh Text
-pacmanCmd = cmd "pacman" "--noconfirm"
-
-pacmanPkgQuery :: Pkg -> Sh Text
-pacmanPkgQuery pkg = silently $ cmd "pacman" "-Qs" $ "^" ++ show pkg ++ "$"
+-- | Configuration of Pacman
+data PacmanConf = PacmanConf
+data Pacman = Pacman PacmanConf
 
 instance PackageManager Pacman where
     applyConfiguration _ = undefined
@@ -70,23 +88,11 @@ instance PackageManager Pacman where
             1 -> return ResNoop -- Package was not installed
             _ -> error "Unhandled exit code."
 
+pacmanPkgQuery :: Pkg -> Sh Text
+pacmanPkgQuery pkg = silently $ cmd "pacman" "-Qs" $ "^" ++ show pkg ++ "$"
+
+pacmanCmd :: Text -> Pkg -> Sh Text
+pacmanCmd = cmd "pacman" "--noconfirm"
+
 exitCode :: Sh a -> Sh Int
 exitCode f = f >> lastExitCode
-
--- * Internal implementations
-
-instance PackageManagement c => Target c Pkg where
-    targetDesc _ (Pkg txt) = txt
-    targetApply pkg = do
-        onPkgMgr $ installPackage pkg
-
-data PkgManager where
-    MkPkgManager :: PackageManager pm => pm -> PkgManager
-
-onPkgMgr :: PackageManagement c
-         => (forall m. PackageManager m => m -> Sh a)
-         -> H c a
-onPkgMgr f = do
-    MkPkgManager mgr <- liftM pkgManager getConfiguration
-    sh $ f mgr
-

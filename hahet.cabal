@@ -17,15 +17,17 @@ cabal-version:       >=1.8
 library
   hs-source-dirs:  src
   exposed-modules: Hahet
+                   Hahet.Imports
                    Hahet.Targets
                    Hahet.Targets.Packages
                    Hahet.Targets.FileNodes
                    Hahet.Targets.Services
-                   Hahet.Modules
                    Hahet.Modules.DateTimeManager
                    Hahet.Modules.ModNginx
                    Hahet.Modules.SSH
                    Hahet.Internal
+  other-modules: Hahet.Targets.Internal.Packages
+                 Hahet.Logging
 
   -- other-modules:       
   build-depends: base                     ==4.6.*
@@ -53,6 +55,7 @@ library
               RankNTypes
               TemplateHaskell
               TypeFamilies
+              CPP
 
   ghc-options: -Wall -fno-warn-type-defaults
 
@@ -63,18 +66,41 @@ executable    hahet_test_config
 
    build-depends: base, hahet
 
-Test-Suite tests
-   hs-source-dirs: tests
-   main-is: test.hs
-   type:    exitcode-stdio-1.0
-   build-depends: base, hahet
-   extensions: TypeFamilies
-               DeriveDataTypeable
-               ExtendedDefaultRules
-               FlexibleInstances
-               GADTs
-               GeneralizedNewtypeDeriving
-               MultiParamTypeClasses
-               NoImplicitPrelude
-               OverloadedStrings
-               RankNTypes
+executable host-applicative
+   hs-source-dirs: hahet-example
+   main-is:        host-applicative.hs
+   build-depends:  base, hahet
+
+Test-Suite Main
+   type:            exitcode-stdio-1.0
+   main-is:         test.hs
+   hs-source-dirs:  src, tests
+   cpp-options:     -DTESTS
+
+   build-depends: base
+               , containers               ==0.5.*
+               , data-default             ==0.5.*
+               , directory                ==1.2.*
+               , interpolatedstring-perl6 ==0.9.*
+               , monad-logger             ==0.3.*
+               , fast-logger              ==0.3.*
+               , template-haskell         ==2.8.*
+               , ansi-terminal            ==0.6.*
+               , mtl                      ==2.1.*
+               , shelly                   ==1.3.0.*
+               , text                     ==0.11.*
+               , QuickCheck
+
+  extensions: DeriveDataTypeable
+              ExtendedDefaultRules
+              FlexibleInstances
+              GADTs
+              GeneralizedNewtypeDeriving
+              MultiParamTypeClasses
+              NoImplicitPrelude
+              OverloadedStrings
+              QuasiQuotes
+              RankNTypes
+              TemplateHaskell
+              TypeFamilies
+              CPP
