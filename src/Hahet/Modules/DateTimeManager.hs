@@ -46,16 +46,31 @@ curTimeZone = liftM T.pack $ print_stdout False $ escaping False $
 -- ** Chrony
 
 data Chrony = Chrony deriving (Typeable)
-
 instance PackageManagement conf => HahetModule Chrony conf where
     fromModule Chrony = do
-        manage $ Pkg "chrony"
+        manage $ Pkg  "chrony"
+        manage $ Service "chronyd.service" (Just True)
+        manage $ file "/etc/chrony.conf" /- owner "root" /- group "root" /- perms "644"
+            /- fileSource [qc|
+server 0.pool.ntp.org iburst
+server 1.pool.ntp.org iburst
+server 2.pool.ntp.org iburst
+
+rtcfile /etc/chrony.rtc
+rtconutc
+
+keyfile /etc/chrony.keys
+commandkey 1
+
+driftfile /etc/chrony.drift
+|]
 
 -- ** ntpd
 
 data NTP = NTP
          { ntpServers :: [Text]
          } deriving (Typeable)
+
 instance PackageManagement conf => HahetModule NTP conf where
     fromModule NTP{} = do
         manage $ Pkg     "ntpd"
