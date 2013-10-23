@@ -9,11 +9,3 @@ import Language.Haskell.TH
 status, action :: Q Exp
 status = logOther "status"
 action = logOther "action"
-
--- * Logging
-
---     let logHandle = IO.stdout -- XXX: duplicate to a file?
-
---     logger <- mkLogger True logHandle
-
--- ** Logging in configurations

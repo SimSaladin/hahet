@@ -1,66 +1,70 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-|
-Hahet public API.
-
-Intented for writing configurations. For targets see "Hahet.Targets", and for modules see "Hahet.Modules".
-
-For best usage I suggest using something along the lines of this in your
-configurations:
+Hahet is a system configuration management framework for Haskell. To get
+started, just import two modules:
 
 @
-import Hahet
-import "Hahet.Imports" -- Exports many conveniences, see documentation for details.
-default("Text")
-@
-
--- * Example
-
-A complete functioning example:
-
-(not done yet)
-
-@
-module Main where
-
 import Hahet
 import "Hahet.Imports"
-default("Text")
-
-main :: IO ()
-main = do
-    app     <- 'configure' ...
-    results <- 'apply' app
-    return ()
+default("Text") -- not mandatory
 @
+
+An Example.
+
+Here is a complete example of setting system timezone:
+
+@
+import Hahet
+import "Hahet.Imports"
+import "Hahet.Modules.DateTimeManager"
+default('Text')
+
+main = let
+    (_, conf, _) = "configure" () $ do
+            "use" $ "DateTime" \"Europe/Helsinki\"
+    in "apply" conf >>= putStrLn . "prettyPrintSesults"
+@
+
+For targets see "Hahet.Targets", and for modules see "Hahet.Modules".
 
 -}
 module Hahet 
     (
-    -- * Configuration
-    C, ($*), use, convertFilePath
-
-    -- ** Logging
-    , logDebug, logInfo, logWarn, logError
-
-    -- ** Applying
-    , configure, apply
-
-    -- *** Results
+    -- * The basics
+    Configuration
+    , C
+    , configure
+    , apply
     , prettyPrintResults
+    , use
 
-    -- *** Lower-level
-    , runH, apply'
-
-    -- * Targets
+    -- ** Targets
+    , manage, revoke
     , module Hahet.Targets.Packages
     , module Hahet.Targets.FileNodes
     , module Hahet.Targets.Services
-    , manage, revoke
-    , ApplyResult(..)
-    , AfterSh(..), AfterH(..), sh
-    , TargetResult
 
-    -- * Modules
+    -- * Utilities
+    , ($*)
+    , convertFilePath
+
+    -- * Logging
+    , logDebug, logInfo, logWarn, logError 
+
+    -- * Extending
+
+    -- ** Targets
+    , ApplyResult(..)
+    , ApplySh(..)
+    , ApplyAfter(..)
+    , sh
+
+    -- ** Modules
     , HahetModule(..)
+
+    -- * Advanced
+    , configureOn
+    , emptyConfiguration
     ) where
 
 import           Control.Monad.Logger
@@ -73,18 +77,17 @@ import           Hahet.Imports
 
 -- * Configuring
 
--- | Use a module. Loads up the module, checks dependency conflicts.
--- Conflicts are logged to stdout.
-use :: HahetModule mconf c => mconf -> C c ()
-use mconf = do
-    pushModule mident
-    fromModule mconf
-    popModule
+-- | Use "use" to import a module to a configuration.  Modules are
+-- collections of "Target"s, which are the smallest pieces of configuration
+-- in Hahet.
+use :: HahetModule d c => d -> C c ()
+use mconf = pushModule mident >> fromHM mconf >> popModule
     where
         mident = show $ typeOf mconf
 
--- | Require a target to be applied.
-manage :: (Typeable conf, Target conf target) => target -> C conf ()
+-- | Use "manage" to add a target to a configuration.
+manage :: (Typeable c, Typeable t, Target c t)
+       => t -> C c ()
 manage target = do
     conf <- getConf
     let tident = show $ typeOf target
@@ -92,6 +95,7 @@ manage target = do
     pushTarget ("[ " ++ tident ++ "; " ++ T.unpack desc ++ " ]")
                (MkTarget target)
 
--- | Require to not be applied.
-revoke :: Target c target => target -> C c ()
+-- | "revoke" makes sure that a target is not applied.  Different target
+-- types provide their own means to identify overlapping targets.
+revoke :: Target c t => t -> C c ()
 revoke _ = error "Target revoking not implemented"

@@ -24,7 +24,7 @@ ssh = return def
 
 instance PackageManagement c => HahetModule SSH c where
 
-    fromModule mc = do
+    fromHM mc = do
         manage $ sshPkgs mc
         manage $ directory "/etc/ssh"
                     /- owner "root"

@@ -60,13 +60,6 @@ library
 
   ghc-options: -Wall -fno-warn-type-defaults
 
-executable    hahet_test_config
-   hs-source-dirs: hahet-example
-   main-is:        Main.hs
-   -- other-modules:
-
-   build-depends: base, hahet
-
 executable host-applicative
    hs-source-dirs: hahet-example
    main-is:        host-applicative.hs

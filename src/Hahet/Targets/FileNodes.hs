@@ -51,7 +51,7 @@ import           Text.Read     as R
 default (Text)
 
 -- | TODO move&rename this
-type Ha r = Typeable c => H c r
+type GApply r = Typeable c => Apply c r
 
 -- * FileNode data type
 
@@ -76,7 +76,7 @@ instance (Typeable c, Typeable a) => Target c (FileNode a) where
     targetConflicts a b | filenodePath a == filenodePath b = Just "Conflicts with"
                         | otherwise                        = Nothing
 
-applyFileNode :: FileNode a -> Ha ApplyResult
+applyFileNode :: FileNode a -> GApply ApplyResult
 applyFileNode fn = do
     let settings = filenodeSettings fn
         path     = fPath settings
@@ -196,7 +196,7 @@ getPerms :: FilePath -> Sh Permissions
 getPerms fp = liftM (read . T.unpack) . silently $ cmd "stat" "-c%a" fp
 
 -- | Use "stat" to check and/or change the permissions.
-handlePerms :: FilePath -> Permissions -> Ha ApplyResult
+handlePerms :: FilePath -> Permissions -> GApply ApplyResult
 handlePerms  _ PermNoop = return ResNoop
 handlePerms fp new      = do
     cur <- sh $ getPerms fp

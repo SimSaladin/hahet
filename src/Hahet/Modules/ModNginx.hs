@@ -16,7 +16,7 @@ instance Default Nginx where
                 []
 
 instance PackageManagement c => HahetModule Nginx c where
-    fromModule nserver = do
+    fromHM nserver = do
         let dir      = nginxFilesRoot nserver
             basefile = dir </> "nginx.conf"
 

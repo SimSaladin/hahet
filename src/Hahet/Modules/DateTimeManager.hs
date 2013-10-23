@@ -16,11 +16,11 @@ data DateTime = DateTime
     } deriving (Typeable)
 
 instance Typeable c => HahetModule DateTime c where
-    fromModule DateTime{dtmTimezone = timezone} = do
-        manage . AfterH . setTimeZone timezone =<< getConf
+    fromHM DateTime{dtmTimezone = timezone} = do
+        manage . ApplyAfter . setTimeZone timezone =<< getConf
 
 setTimeZone :: Typeable c
-            => TimeZone -> c -> H c ApplyResult
+            => TimeZone -> c -> Apply c ApplyResult
 setTimeZone timezone c = do
     current <- sh curTimeZone
     if current == timezone
@@ -45,7 +45,7 @@ curTimeZone = liftM T.pack . print_stdout False . escaping False $
 
 data Chrony = Chrony deriving (Typeable)
 instance PackageManagement conf => HahetModule Chrony conf where
-    fromModule Chrony = do
+    fromHM _chrony = do
         manage $ Pkg  "chrony"
         manage $ Service "chronyd.service" (Just True)
         manage $ file "/etc/chrony.conf" /- owner "root" /- group "root" /- perms "644"
@@ -70,7 +70,7 @@ data NTP = NTP
          } deriving (Typeable)
 
 instance PackageManagement conf => HahetModule NTP conf where
-    fromModule NTP{} = do
+    fromHM NTP{} = do
         manage $ Pkg     "ntpd"
         manage $ Service "ntpd.service" (Just True)
         manage $ file "/etc/ntpd.conf" /- fileSource "servers pool.ntp.org"

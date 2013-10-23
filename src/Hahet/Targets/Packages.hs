@@ -36,7 +36,6 @@ data Pkg = Pkg Text deriving (Typeable)
 instance IsString Pkg where fromString          = Pkg . T.pack
 instance ShellArg Pkg where toTextArg (Pkg txt) = txt
 instance Show Pkg     where show      (Pkg txt) = T.unpack txt
-
 instance PackageManagement c => Target c Pkg where
     targetDesc _ (Pkg txt) = txt
     targetApply pkg        = onPkgMgr $ installPackage pkg
@@ -53,7 +52,8 @@ class PackageManager pm where
 data PkgManager where
     MkPkgManager :: PackageManager pm => pm -> PkgManager
 
-onPkgMgr :: PackageManagement c => (forall m. PackageManager m => m -> Sh a) -> H c a
+onPkgMgr :: PackageManagement c
+         => (forall m. PackageManager m => m -> Sh a) -> Apply c a
 onPkgMgr f = do
     MkPkgManager mgr <- liftM pkgManager getConfiguration
     sh $ f mgr
@@ -65,28 +65,18 @@ pacman pc = MkPkgManager (Pacman pc)
 
 -- | Configuration of Pacman
 data PacmanConf = PacmanConf
-data Pacman = Pacman PacmanConf
+data Pacman     = Pacman PacmanConf
 
 instance PackageManager Pacman where
     applyConfiguration _ = undefined
-
-    installPackage pkg _ = errExit False $ do
-        exitCode (pacmanPkgQuery pkg) >>= \case
-            0 -> return ResNoop
-            1 -> exitCode (pacmanCmd "-S" pkg) >>= return . \case
-                0 -> ResSuccess
-                1 -> ResFailed "Couldn't install the package!"
-                _ -> error "Unhandled exit code."
-            _ -> error "Unhandled exit code."
-
-    revokePackage pkg _ = errExit False $ do
-        exitCode (pacmanPkgQuery pkg) >>= \case
-            0 -> exitCode (pacmanCmd "-R" pkg) >>= return . \case
-                0 -> ResSuccess
-                1 -> ResFailed "Couldn't revoke the package!"
-                _ -> error "Unhandled exit code."
-            1 -> return ResNoop -- Package was not installed
-            _ -> error "Unhandled exit code."
+    installPackage pkg _ = caseExitCode (pacmanPkgQuery pkg) (return ResNoop) installPkg
+        where installPkg = caseExitCode
+                (pacmanCmd "-S" pkg) (return ResSuccess)
+                (return $ ResFailed "Couldn't install the package!")
+    revokePackage pkg _ = caseExitCode (pacmanPkgQuery pkg) removePkg (return ResNoop) -- Package was not installed to begin with
+        where removePkg = caseExitCode
+                (pacmanCmd "-R" pkg) (return ResSuccess)
+                (return $ ResFailed "Couldn't revoke the package!")
 
 pacmanPkgQuery :: Pkg -> Sh Text
 pacmanPkgQuery pkg = silently $ cmd "pacman" "-Qs" $ "^" ++ show pkg ++ "$"
@@ -94,5 +84,10 @@ pacmanPkgQuery pkg = silently $ cmd "pacman" "-Qs" $ "^" ++ show pkg ++ "$"
 pacmanCmd :: Text -> Pkg -> Sh Text
 pacmanCmd = cmd "pacman" "--noconfirm"
 
-exitCode :: Sh a -> Sh Int
-exitCode f = f >> lastExitCode
+-- | f, zero, one
+caseExitCode :: Sh a -> Sh b -> Sh b -> Sh b
+caseExitCode f zero one = errExit False f >> lastExitCode >>= \x -> case x of
+                  0 -> zero
+                  1 -> one
+                  _ -> error "Unhandled exit code."
+

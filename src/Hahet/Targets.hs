@@ -1,9 +1,8 @@
--- | The Targets interface. You should only need to import this when writing
--- custom Targets.
+-- | Targets interface.
 module Hahet.Targets 
     ( Target(..)
     , Conflict
-    , H, sh
+    , Apply, sh
     , getConfiguration
 
     , module Hahet.Logging

@@ -10,10 +10,12 @@ data Applicative = Applicative deriving Typeable
 instance PackageManagement Applicative where
         pkgManager _ = pacman undefined
 
+app :: ((), Configuration Applicative, [String])
+app = configure Applicative $ do
+    use =<< ssh $* (\s -> s{ sshClient = SSHClientConf })
+    use $ DateTime "Europe/Helsinki"
+    use $ Chrony
+
 main :: IO ()
-main = do
-    app <- configure Applicative $ do
-        use =<< ssh $* (\s -> s{ sshClient = SSHClientConf })
-        use $ DateTime "Europe/Helsinki"
-        use $ Chrony
-    apply app >>= putStrLn . prettyPrintResults
+main = let (_, conf, logs) = app
+           in apply conf >>= putStrLn . prettyPrintResults
