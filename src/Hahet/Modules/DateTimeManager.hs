@@ -6,9 +6,7 @@ import           Hahet
 import           Hahet.Imports
 import qualified Data.Text as T
 import           GHC.IO.Handle
-
-import Hahet.Internal
-
+import           Hahet.Internal
 default(Text)
 
 type TimeZone = Text
@@ -36,7 +34,7 @@ setTimeZone timezone c = do
 
 -- | Get the current timezone from the system.
 curTimeZone :: Sh TimeZone
-curTimeZone = liftM T.pack $ print_stdout False $ escaping False $
+curTimeZone = liftM T.pack . print_stdout False . escaping False $
     runHandle "timedatectl" ["status | awk '/Timezone/{printf $2}'"]
               (liftIO . hGetLine)
               -- XXX: why this does not add a newline?
