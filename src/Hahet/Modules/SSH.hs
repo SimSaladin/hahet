@@ -2,16 +2,17 @@ module Hahet.Modules.SSH where
 
 import Hahet
 import Hahet.Imports
+default(Text)
 
 data SSHClientConf = SSHClientConf
-
 data SSHDaemonConf = SSHDaemonConf
 
-data SSH = SSH { sshPkgs     :: [Pkg]
-               , sshConfRoot :: FilePath
-               , sshClient   :: SSHClientConf
-               , sshDaemon   :: Maybe SSHDaemonConf
+data SSH = SSH { _sshPkgs     :: [Pkg]
+               , _sshConfRoot :: FilePath
+               , _sshClient   :: SSHClientConf
+               , _sshDaemon   :: Maybe SSHDaemonConf
                } deriving Typeable
+makeLenses ''SSH
 
 instance Default SSH where
     def = SSH ["openssh"]
@@ -25,7 +26,7 @@ ssh = return def
 instance PackageManagement c => HahetModule SSH c where
 
     fromHM mc = do
-        manage $ sshPkgs mc
+        manage $ mc ^. sshPkgs
         manage $ directory "/etc/ssh"
                     /- owner "root"
                     /- perms "755"

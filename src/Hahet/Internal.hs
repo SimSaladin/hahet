@@ -52,13 +52,17 @@ newtype C c a = C {
 
 -- | Construct the C config on top of the empty configuration.
 configure :: (Typeable c)
-          => c -> C c r -> (r, Configuration c, [String])
+          => c -> C c () -> (Configuration c, [String])
 configure uc mc = configureOn (emptyConfiguration uc) uc mc
 
 -- | Construct the C config on top the provided existing configuration.
-configureOn :: (Typeable c)
-            => Configuration c -> c -> C c r -> (r, Configuration c, [String])
-configureOn app conf comp = runRWS (unC comp) conf app
+configureOn :: Typeable c => Configuration c -> c -> C c () -> (Configuration c, [String])
+configureOn app conf comp = let (_, c, l) = configureOn' app conf comp
+                                in (c, l)
+
+-- | @configureOn@, but also returns the result from C.
+configureOn' :: Typeable c => Configuration c -> c -> C c r -> (r, Configuration c, [String])
+configureOn' app conf comp = runRWS (unC comp) conf app
 
 -- | Create a new empty application.
 -- Applying an empty application is the same as not doing anything at all.
