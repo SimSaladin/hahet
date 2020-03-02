@@ -187,6 +187,15 @@ logc = tell . return
 
 -- * Utilities
 
+resNoop :: Monad m => m ApplyResult
+resNoop = return ResNoop
+
+resSuccess :: Monad m => m ApplyResult
+resSuccess = return ResSuccess
+
+resFailed :: Monad m => Text -> m ApplyResult
+resFailed = return . ResFailed
+
 ppApplication :: Application variant -> String
 ppApplication = undefined -- drawForest . map (either id fst <$>)
 
